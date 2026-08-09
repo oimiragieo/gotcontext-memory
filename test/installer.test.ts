@@ -94,6 +94,45 @@ describe("installer", () => {
     ).rejects.toThrow(/tampered/i);
   });
 
+  it("re-init preImage strips prior managed block so uninstall clears markers", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "gcm-ih5-"));
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "gcm-ic5-"));
+    await mkdir(path.join(home, ".claude"), { recursive: true });
+    await mkdir(path.join(home, ".codex"), { recursive: true });
+    const storeRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-is5-"));
+    const store = await MemoryStore.initStore(storeRoot);
+    const first = await installFragments({
+      dryRun: false,
+      home,
+      cwd,
+      storeHint: storeRoot,
+      storeRoot,
+    });
+    await store.commitOperational({
+      relativePath: "installer-manifest.json",
+      body: `${JSON.stringify({ entries: first.manifest }, null, 2)}\n`,
+      scanSecrets: false,
+    });
+    // Simulate a second init without clearing adapter files (docker volume leftover).
+    const second = await installFragments({
+      dryRun: false,
+      home,
+      cwd,
+      storeHint: storeRoot,
+      storeRoot,
+    });
+    await store.commitOperational({
+      relativePath: "installer-manifest.json",
+      body: `${JSON.stringify({ entries: second.manifest }, null, 2)}\n`,
+      scanSecrets: false,
+    });
+    const claudeEntry = second.manifest.find((e) => e.adapter === "claude-code");
+    expect(claudeEntry?.preImageBase64).toBeNull();
+    await uninstallFragments({ store });
+    const after = await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8");
+    expect(after).not.toContain(MARK_BEGIN);
+  });
+
   it("project install skips home adapters so user CLAUDE.md is not retargeted", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "gcm-ih4-"));
     const cwdUser = await mkdtemp(path.join(os.tmpdir(), "gcm-ic4u-"));

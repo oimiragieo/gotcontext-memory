@@ -80,8 +80,6 @@ export async function installFragments(opts: {
 
     let existing = "";
     if (await fileExists(target)) existing = await readFile(target, "utf8");
-    const preImageHash = existing ? sha256Hex(existing) : null;
-    const preImageBase64 = existing ? Buffer.from(existing, "utf8").toString("base64") : null;
 
     if (existing.includes(MARK_BEGIN) && existing.includes(MARK_END)) {
       const start = existing.indexOf(MARK_BEGIN);
@@ -91,6 +89,14 @@ export async function installFragments(opts: {
         throw new Error(`Managed block tampered in ${target}; pass --force to overwrite`);
       }
     }
+
+    // Pre-image must be the user preface WITHOUT our managed block (DV-003).
+    // Re-init over an already-stamped file must not snapshot markers as "original".
+    const prefaceOnly = stripManagedBlock(existing);
+    const preImageHash = prefaceOnly.trim() ? sha256Hex(prefaceOnly) : null;
+    const preImageBase64 = prefaceOnly.trim()
+      ? Buffer.from(prefaceOnly, "utf8").toString("base64")
+      : null;
 
     manifest.push({
       adapter: a.id,
@@ -130,15 +136,14 @@ export async function uninstallFragments(opts: {
       throw new Error(`Uninstall refuses store-root path in manifest: ${e.path}`);
     }
     if (e.preImageBase64 != null) {
-      await writeFile(e.path, Buffer.from(e.preImageBase64, "base64").toString("utf8"), "utf8");
+      const restoredBytes = Buffer.from(e.preImageBase64, "base64").toString("utf8");
+      // Belt-and-suspenders: never leave managed markers behind after uninstall.
+      const cleaned = stripManagedBlock(restoredBytes);
+      await writeFile(e.path, cleaned.trim() ? cleaned : "", "utf8");
     } else if (await fileExists(e.path)) {
       const existing = await readFile(e.path, "utf8");
-      if (existing.includes(MARK_BEGIN) && existing.includes(MARK_END)) {
-        const start = existing.indexOf(MARK_BEGIN);
-        const end = existing.indexOf(MARK_END) + MARK_END.length;
-        const without = `${(existing.slice(0, start) + existing.slice(end)).trimEnd()}\n`;
-        await writeFile(e.path, without === "\n" ? "" : without, "utf8");
-      }
+      const without = stripManagedBlock(existing);
+      await writeFile(e.path, without.trim() ? without : "", "utf8");
     }
     restored.push(e.path);
   }
@@ -152,6 +157,16 @@ export async function uninstallFragments(opts: {
     scanSecrets: false,
   });
   return restored;
+}
+
+function stripManagedBlock(existing: string): string {
+  if (!(existing.includes(MARK_BEGIN) && existing.includes(MARK_END))) {
+    return existing;
+  }
+  const start = existing.indexOf(MARK_BEGIN);
+  const end = existing.indexOf(MARK_END) + MARK_END.length;
+  const without = `${(existing.slice(0, start) + existing.slice(end)).trimEnd()}\n`;
+  return without === "\n" ? "" : without;
 }
 
 function upsertManaged(existing: string, fragment: string): string {

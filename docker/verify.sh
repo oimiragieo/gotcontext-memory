@@ -72,8 +72,9 @@ assert_contains "CLI help lists doctor" "$HELP" "doctor"
 log "=== 1. Fresh HOME: init user store + adapters ==="
 # Isolate store HOME under WORK so re-runs are clean
 export HOME="$WORK/home"
+# Hermetic: wipe prior volume leftovers (stores + adapter stamps).
+rm -rf "$HOME" "$WORK/project" "$WORK/AGENTS.md" "$WORK/.cursor" "$WORK/export.gcm.gz" 2>/dev/null || true
 mkdir -p "$HOME/.claude/projects" "$HOME/.codex" "$WORK/project"
-rm -rf "$HOME/.gotcontext" "$WORK/project/.gotcontext" 2>/dev/null || true
 
 INIT_OUT=$(gotcontext-memory init 2>&1)
 assert_contains "init prints store path" "$INIT_OUT" "Initialized store at"

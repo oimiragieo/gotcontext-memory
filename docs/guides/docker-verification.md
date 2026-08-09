@@ -30,6 +30,7 @@ Report artifact: `docker/out/VERIFY_REPORT.md` (bind-mounted).
 |---|---|---|
 | DV-001 | `npm link` / global bin: `import: not found` — `dist/cli.js` executed as shell | Add `#!/usr/bin/env node` shebang to `src/cli.ts` (preserved by `tsc`) |
 | DV-002 | `init --project` after user `init` throws "Managed block tampered" on `~/.claude/CLAUDE.md` (storeHint retarget) | `init --project` passes `skipHomeAdapters`; only cwd adapters (AGENTS.md / Cursor rules) are stamped |
+| DV-003 | `uninstall` left managed markers when re-init had snapshotted a preImage that already contained the managed block (volume leftover) | Capture preImage as preface-only (`stripManagedBlock`); uninstall always strips markers after restore |
 
 Further rows are appended as verification finds them.
 

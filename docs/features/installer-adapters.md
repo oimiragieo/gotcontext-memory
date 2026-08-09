@@ -46,7 +46,9 @@ injected before the end marker.
 2. Deduplicate same absolute path in one run (agy + opencode → one `AGENTS.md`)
 3. If managed block exists and differs → throw unless `force`
 4. Upsert block; preserve user preface outside markers
-5. Record `preImageBase64` + `blockHash` in manifest entries
+5. Record `preImageBase64` + `blockHash` in manifest entries — preImage is the
+   preface **after stripping** any existing managed block (so re-init / volume
+   leftovers cannot snapshot markers as the restore target; DV-003)
 6. `skipHomeAdapters` (set by `init --project`): do not touch paths under `$HOME`
    (`~/.claude`, `~/.codex`). Those belong to the user store; project init only
    stamps cwd-local fragments (DV-002).
