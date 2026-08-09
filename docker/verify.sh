@@ -146,9 +146,22 @@ fi
 log "=== 3. Project store ambiguity + doctor ==="
 cd "$WORK/project"
 git init -q 2>/dev/null || true
+set +e
 PROJ_INIT=$(gotcontext-memory init --project 2>&1)
-assert_contains "project init" "$PROJ_INIT" "Initialized store at"
+PROJ_RC=$?
+set -e
+if [[ "$PROJ_RC" -eq 0 ]]; then
+  assert_contains "project init" "$PROJ_INIT" "Initialized store at"
+else
+  fail "project init failed (rc=$PROJ_RC): $PROJ_INIT"
+fi
 assert_file "$WORK/project/.gotcontext/MEMORY.md"
+# Home Claude fragment must still point at user store (DV-002)
+if grep -Fq "$HOME/.gotcontext" "$HOME/.claude/CLAUDE.md"; then
+  pass "home CLAUDE.md still points at user store after project init"
+else
+  fail "home CLAUDE.md lost user store hint after project init"
+fi
 
 # With both stores, bare doctor should refuse
 set +e
@@ -158,21 +171,25 @@ set -e
 assert_contains "ambiguous store refused" "$AMB" "Ambiguous store"
 if [[ "$AMB_RC" -ne 0 ]]; then pass "ambiguous doctor non-zero exit"; else fail "ambiguous doctor exited 0"; fi
 
-PROJ_DOC=$(gotcontext-memory --store project doctor 2>&1) || true
+set +e
+PROJ_DOC=$(gotcontext-memory --store project doctor 2>&1)
+set -e
 assert_contains "project doctor ok" "$PROJ_DOC" '"ok": true'
 
 log "=== 4. Export / import merge ==="
 EXPORT_PATH="$WORK/export.gcm.gz"
-EXP_OUT=$(gotcontext-memory --store user export --out "$EXPORT_PATH" 2>&1) || true
+set +e
+EXP_OUT=$(gotcontext-memory --store user export --out "$EXPORT_PATH" 2>&1)
+set -e
 assert_file "$EXPORT_PATH"
 assert_contains "export message" "$EXP_OUT" "exported to"
 
-# Import into project store (merge)
-IMP_OUT=$(gotcontext-memory --store project import --from "$EXPORT_PATH" --merge 2>&1) || true
+set +e
+IMP_OUT=$(gotcontext-memory --store project import --from "$EXPORT_PATH" --merge 2>&1)
+set -e
 assert_contains "import merge ok" "$IMP_OUT" '"imported"'
 
 log "=== 5. MCP thin JSON-RPC smoke ==="
-# One-shot initialize+tools/list via stdin if server supports stdio JSON-RPC
 set +e
 MCP_OUT=$(printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
@@ -188,7 +205,9 @@ fi
 
 log "=== 6. Uninstall restores / strips adapters ==="
 cd "$WORK"
-UN_OUT=$(gotcontext-memory --store user uninstall 2>&1) || true
+set +e
+UN_OUT=$(gotcontext-memory --store user uninstall 2>&1)
+set -e
 assert_contains "uninstall restored" "$UN_OUT" "restored"
 if grep -Fq 'gotcontext-memory:begin' "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
   fail "uninstall left managed markers in ~/.claude/CLAUDE.md"

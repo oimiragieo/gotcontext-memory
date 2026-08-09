@@ -47,8 +47,11 @@ injected before the end marker.
 3. If managed block exists and differs → throw unless `force`
 4. Upsert block; preserve user preface outside markers
 5. Record `preImageBase64` + `blockHash` in manifest entries
+6. `skipHomeAdapters` (set by `init --project`): do not touch paths under `$HOME`
+   (`~/.claude`, `~/.codex`). Those belong to the user store; project init only
+   stamps cwd-local fragments (DV-002).
 
-`init` persists the manifest via `commitOperational`.
+`init` persists the manifest via `commitOperational` and always passes `storeRoot`.
 
 ### Dry-run
 

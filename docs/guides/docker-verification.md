@@ -29,6 +29,7 @@ Report artifact: `docker/out/VERIFY_REPORT.md` (bind-mounted).
 | ID | Symptom | Fix |
 |---|---|---|
 | DV-001 | `npm link` / global bin: `import: not found` — `dist/cli.js` executed as shell | Add `#!/usr/bin/env node` shebang to `src/cli.ts` (preserved by `tsc`) |
+| DV-002 | `init --project` after user `init` throws "Managed block tampered" on `~/.claude/CLAUDE.md` (storeHint retarget) | `init --project` passes `skipHomeAdapters`; only cwd adapters (AGENTS.md / Cursor rules) are stamped |
 
 Further rows are appended as verification finds them.
 

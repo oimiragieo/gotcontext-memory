@@ -63,6 +63,7 @@ export function buildCli(): Command {
           storeHint: root,
           storeRoot: root,
           force: !!opts.force,
+          skipHomeAdapters: !!opts.project,
         });
         console.log(planned.join("\n"));
         return;
@@ -74,7 +75,9 @@ export function buildCli(): Command {
       const { planned, manifest } = await installFragments({
         dryRun: false,
         storeHint: root,
+        storeRoot: root,
         force: !!opts.force,
+        skipHomeAdapters: !!opts.project,
       });
       await store.commitOperational({
         relativePath: "installer-manifest.json",

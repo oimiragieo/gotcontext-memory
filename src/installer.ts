@@ -23,9 +23,12 @@ export async function installFragments(opts: {
   storeHint: string;
   storeRoot?: string;
   force?: boolean;
+  /** Project init: leave ~/.claude / ~/.codex for the user store (DV-002). */
+  skipHomeAdapters?: boolean;
 }): Promise<{ planned: string[]; manifest: ManifestEntry[] }> {
   const cwd = opts.cwd ?? process.cwd();
   const home = opts.home ?? os.homedir();
+  const homeRoot = path.resolve(home);
   const planned: string[] = [];
   const manifest: ManifestEntry[] = [];
   const writtenThisRun = new Map<string, string>(); // absPath -> blockHash
@@ -37,11 +40,15 @@ export async function installFragments(opts: {
   }
 
   const norm = (s: string) => s.replace(/\r\n/g, "\n");
+  const underHome = (abs: string) => abs === homeRoot || abs.startsWith(homeRoot + path.sep);
 
   for (const a of adapters) {
     if (!(await a.detect())) continue;
     const target = a.fragmentPath(home, cwd);
     const absTarget = path.resolve(target);
+    if (opts.skipHomeAdapters && underHome(absTarget)) {
+      continue;
+    }
     // Installer must never write under a gotcontext store root
     if (opts.storeRoot) {
       const root = path.resolve(opts.storeRoot);

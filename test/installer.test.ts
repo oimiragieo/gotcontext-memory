@@ -94,6 +94,40 @@ describe("installer", () => {
     ).rejects.toThrow(/tampered/i);
   });
 
+  it("project install skips home adapters so user CLAUDE.md is not retargeted", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "gcm-ih4-"));
+    const cwdUser = await mkdtemp(path.join(os.tmpdir(), "gcm-ic4u-"));
+    const cwdProj = await mkdtemp(path.join(os.tmpdir(), "gcm-ic4p-"));
+    await mkdir(path.join(home, ".claude"), { recursive: true });
+    await mkdir(path.join(home, ".codex"), { recursive: true });
+    const userStore = await mkdtemp(path.join(os.tmpdir(), "gcm-isu-"));
+    const projStore = path.join(cwdProj, ".gotcontext");
+    await MemoryStore.initStore(userStore);
+    await installFragments({
+      dryRun: false,
+      home,
+      cwd: cwdUser,
+      storeHint: userStore,
+      storeRoot: userStore,
+    });
+    const claudeBefore = await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8");
+    expect(claudeBefore).toContain(userStore);
+    await MemoryStore.initStore(projStore);
+    const { planned } = await installFragments({
+      dryRun: false,
+      home,
+      cwd: cwdProj,
+      storeHint: projStore,
+      storeRoot: projStore,
+      skipHomeAdapters: true,
+    });
+    expect(planned.some((p) => p.startsWith("claude-code:") || p.startsWith("codex:"))).toBe(false);
+    expect(planned.some((p) => p.startsWith("agy:") || p.startsWith("cursor:"))).toBe(true);
+    expect(await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8")).toBe(claudeBefore);
+    const agents = await readFile(path.join(cwdProj, "AGENTS.md"), "utf8");
+    expect(agents).toContain(projStore);
+  });
+
   it("fragment parity: shared constraint sentences in all five renders", async () => {
     const { adapters } = await import("../src/adapters/types.js");
     const renders = adapters.map((a) => a.render("/tmp/store"));
