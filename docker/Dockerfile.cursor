@@ -1,0 +1,14 @@
+ARG BASE_IMAGE=gotcontext-memory-base
+FROM ${BASE_IMAGE}
+
+# Cursor IDE has no first-party Linux headless npm CLI comparable to Claude/Codex.
+# We install a PATH stub so dogfood can assert harness presence, and verify the
+# real product surfaces: .cursor/rules adapter + cursor corpus under ~/.cursor/projects.
+USER dogfood
+RUN printf '%s\n' '#!/usr/bin/env bash' \
+  'echo "cursor-stub 0.0.0 (gotcontext-memory dogfood — IDE CLI not packaged for Linux)"' \
+  > /home/dogfood/.local/bin/cursor \
+  && chmod +x /home/dogfood/.local/bin/cursor \
+  && cursor --version
+ENV GCM_HARNESS=cursor
+ENV GCM_HARNESS_STUB=1

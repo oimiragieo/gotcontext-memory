@@ -1,0 +1,11 @@
+ARG BASE_IMAGE=gotcontext-memory-base
+FROM ${BASE_IMAGE}
+
+USER root
+ARG OPENCODE_VERSION=latest
+RUN npm install -g "opencode-ai@${OPENCODE_VERSION}" \
+  && (command -v opencode >/dev/null || ln -sf "$(npm root -g)/opencode-ai/bin/opencode" /usr/local/bin/opencode) \
+  && opencode --version
+USER dogfood
+ENV GCM_HARNESS=opencode
+ENV PATH="/home/dogfood/.opencode/bin:${PATH}"

@@ -8,11 +8,13 @@
 
 | Harness | Adapter fragment | Corpus importer | Notes |
 |---|---|---|---|
-| Claude Code | `~/.claude/CLAUDE.md` | Full JSONL + Skill events | Default dream roots: `~/.claude/projects` |
-| Codex | `~/.codex/AGENTS.md` | Full turns JSONL | Tool/skill metadata often empty |
-| Cursor | `.cursor/rules/gotcontext-memory.mdc` | JSONL + read-only sqlite `.vscdb` | Experimental `node:sqlite` |
-| Antigravity (`agy`) | `<cwd>/AGENTS.md` | PARTIAL enumerate | Shared path with OpenCode |
-| OpenCode | `<cwd>/AGENTS.md` | PARTIAL enumerate | Deduped with agy in one install run |
+| Claude Code | `~/.claude/CLAUDE.md` | Full JSONL + Skill events | Dream roots: `~/.claude/projects` (`src/corpus/roots.ts`) |
+| Codex | `~/.codex/AGENTS.md` | Full turns JSONL | Dream roots: `~/.codex/sessions` + `projects` |
+| Cursor | `.cursor/rules/gotcontext-memory.mdc` | JSONL + read-only sqlite `.vscdb` | Dream roots: `~/.cursor/projects` + `<cwd>/.cursor` |
+| Antigravity (`agy`) | `<cwd>/AGENTS.md` | PARTIAL enumerate | Dream roots: `~/.agy/sessions` + `~/.antigravitycli` |
+| OpenCode | `<cwd>/AGENTS.md` | PARTIAL enumerate | Dream roots: `~/.opencode/sessions` + `projects`; deduped with agy on install |
+
+Docker matrix: [docker-verification](../guides/docker-verification.md).
 
 ---
 

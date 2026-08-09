@@ -1,0 +1,9 @@
+ARG BASE_IMAGE=gotcontext-memory-base
+FROM ${BASE_IMAGE}
+
+USER root
+ARG CLAUDE_CODE_VERSION=latest
+RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+  && claude --version
+USER dogfood
+ENV GCM_HARNESS=claude

@@ -35,10 +35,11 @@ gotcontext-memory mcp   # thin JSON-RPC memory tools (additive; not full MCP SDK
 
 Full CLI: [docs/reference/cli.md](docs/reference/cli.md).
 
-Docker dogfood (Windows PowerShell + Docker Desktop; Claude Code CLI + full CUJ verify):
+Docker dogfood (Windows PowerShell + Docker Desktop) for **claude / codex / cursor / agy / opencode**:
 
 ```powershell
-pwsh -File scripts/docker-verify.ps1
+pwsh -File scripts/docker-verify.ps1              # full matrix
+pwsh -File scripts/docker-verify.ps1 -Harness codex
 # or: npm run verify:docker
 ```
 

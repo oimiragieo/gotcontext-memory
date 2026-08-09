@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=gotcontext-memory-base
+FROM ${BASE_IMAGE}
+
+# Official Linux installer → ~/.local/bin/agy
+USER dogfood
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
+  && export PATH="/home/dogfood/.local/bin:$PATH" \
+  && agy --version
+ENV GCM_HARNESS=agy
+ENV PATH="/home/dogfood/.local/bin:${PATH}"

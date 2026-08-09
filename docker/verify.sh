@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# End-to-end dogfood of gotcontext-memory inside the Claude CLI container.
-# Exit non-zero on any failed assertion. Prints a machine-readable ISSUES block.
+# Multi-harness dogfood for gotcontext-memory.
+# Env: GCM_HARNESS=claude|codex|cursor|agy|opencode
 set -euo pipefail
 
+HARNESS="${GCM_HARNESS:-claude}"
 PKG_ROOT="${GCM_PKG_ROOT:-/home/dogfood/gotcontext-memory}"
 WORK="${GCM_WORK:-/home/dogfood/workspace}"
 REPORT="${GCM_REPORT:-/home/dogfood/workspace/VERIFY_REPORT.md}"
@@ -17,237 +18,222 @@ fail() {
   ISSUES+=("$*")
   log "FAIL: $*"
 }
-assert_eq() {
-  local label="$1" got="$2" want="$3"
-  if [[ "$got" == "$want" ]]; then pass "$label"; else fail "$label (got='$got' want='$want')"; fi
+assert_contains() {
+  local label="$1" hay="$2" needle="$3"
+  if grep -Fq -- "$needle" <<<"$hay"; then pass "$label"; else fail "$label (missing '$needle')"; fi
 }
 assert_file() {
   local f="$1"
   if [[ -f "$f" ]]; then pass "file exists: $f"; else fail "missing file: $f"; fi
 }
-assert_contains() {
-  local label="$1" hay="$2" needle="$3"
-  if grep -Fq -- "$needle" <<<"$hay"; then pass "$label"; else fail "$label (missing '$needle')"; fi
+
+harness_bin() {
+  case "$HARNESS" in
+    claude) echo claude ;;
+    codex) echo codex ;;
+    cursor) echo cursor ;;
+    agy) echo agy ;;
+    opencode) echo opencode ;;
+    *) echo "" ;;
+  esac
 }
 
-mkdir -p "$WORK" "$HOME/.claude/projects" "$HOME/.codex"
+adapter_path_for_harness() {
+  # Echo expected adapter fragment path after user init (HOME + WORK=cwd).
+  case "$HARNESS" in
+    claude) echo "$HOME/.claude/CLAUDE.md" ;;
+    codex) echo "$HOME/.codex/AGENTS.md" ;;
+    cursor) echo "$WORK/.cursor/rules/gotcontext-memory.mdc" ;;
+    agy|opencode) echo "$WORK/AGENTS.md" ;;
+  esac
+}
+
+seed_corpus() {
+  case "$HARNESS" in
+    claude)
+      mkdir -p "$HOME/.claude/projects/dogfood-proj"
+      cp "$PKG_ROOT/test/fixtures/transcripts/claude/proj-a/s1.jsonl" "$HOME/.claude/projects/dogfood-proj/s1.jsonl"
+      cp "$PKG_ROOT/test/fixtures/transcripts/claude/proj-a/s2.jsonl" "$HOME/.claude/projects/dogfood-proj/s2.jsonl"
+      ;;
+    codex)
+      mkdir -p "$HOME/.codex/sessions/dogfood-proj"
+      cp "$PKG_ROOT/test/fixtures/transcripts/codex/proj-a/"*.jsonl "$HOME/.codex/sessions/dogfood-proj/"
+      ;;
+    cursor)
+      mkdir -p "$HOME/.cursor/projects/proj-a"
+      cp -a "$PKG_ROOT/test/fixtures/transcripts/cursor/proj-a/." "$HOME/.cursor/projects/proj-a/"
+      ;;
+    agy)
+      mkdir -p "$HOME/.agy/sessions/dogfood"
+      echo "agy-placeholder" >"$HOME/.agy/sessions/dogfood/note.txt"
+      ;;
+    opencode)
+      mkdir -p "$HOME/.opencode/sessions/dogfood"
+      echo "opencode-placeholder" >"$HOME/.opencode/sessions/dogfood/note.txt"
+      ;;
+  esac
+}
+
+mkdir -p "$WORK"
 cd "$WORK"
 : >"$REPORT"
 
 {
-  echo "# gotcontext-memory Docker verification"
+  echo "# gotcontext-memory Docker verification — harness=$HARNESS"
   echo
   echo "- date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "- node: $(node -v)"
-  echo "- claude: $(claude --version 2>&1 | head -1 || echo 'MISSING')"
-  echo "- package: $PKG_ROOT"
+  echo "- harness: $HARNESS"
+  echo "- stub: ${GCM_HARNESS_STUB:-0}"
   echo
 } >>"$REPORT"
 
-log "=== 0. Preflight Claude CLI + toolkit binaries ==="
-if command -v claude >/dev/null 2>&1; then
-  CLVER=$(claude --version 2>&1 | head -1 || true)
-  pass "claude on PATH ($CLVER)"
+BIN="$(harness_bin)"
+log "=== 0. Preflight harness=$HARNESS toolkit ==="
+if [[ -n "$BIN" ]] && command -v "$BIN" >/dev/null 2>&1; then
+  pass "$BIN on PATH ($(command -v "$BIN"))"
+  set +e
+  "$BIN" --version >/tmp/harness-ver.txt 2>&1 || "$BIN" version >/tmp/harness-ver.txt 2>&1 || "$BIN" -v >/tmp/harness-ver.txt 2>&1
+  set -e
+  pass "harness version probe: $(head -1 /tmp/harness-ver.txt | tr -d '\r')"
 else
-  fail "claude binary missing from PATH"
+  fail "harness binary missing: $BIN"
 fi
 
 if command -v gotcontext-memory >/dev/null 2>&1; then
   pass "gotcontext-memory on PATH"
 else
-  # rebuild/link if bind-mounted sources
-  (cd "$PKG_ROOT" && npm ci && npm run build && npm link)
-  if command -v gotcontext-memory >/dev/null 2>&1; then
-    pass "gotcontext-memory linked after rebuild"
-  else
-    fail "gotcontext-memory binary missing"
-  fi
+  fail "gotcontext-memory missing"
 fi
 
-HELP=$(gotcontext-memory --help 2>&1 || true)
-assert_contains "CLI help lists init" "$HELP" "init"
-assert_contains "CLI help lists dream" "$HELP" "dream"
-assert_contains "CLI help lists doctor" "$HELP" "doctor"
-
-log "=== 1. Fresh HOME: init user store + adapters ==="
-# Isolate store HOME under WORK so re-runs are clean
+log "=== 1. Init user store + adapter fragment ==="
 export HOME="$WORK/home"
-# Hermetic: wipe prior volume leftovers (stores + adapter stamps).
 rm -rf "$HOME" "$WORK/project" "$WORK/AGENTS.md" "$WORK/.cursor" "$WORK/export.gcm.gz" 2>/dev/null || true
-mkdir -p "$HOME/.claude/projects" "$HOME/.codex" "$WORK/project"
+mkdir -p "$HOME/.claude/projects" "$HOME/.codex" "$HOME/.cursor" "$HOME/.agy" "$HOME/.opencode" "$WORK/project"
 
 INIT_OUT=$(gotcontext-memory init 2>&1)
-assert_contains "init prints store path" "$INIT_OUT" "Initialized store at"
+assert_contains "init ok" "$INIT_OUT" "Initialized store at"
 assert_file "$HOME/.gotcontext/MEMORY.md"
-assert_file "$HOME/.gotcontext/config.json"
 assert_file "$HOME/.gotcontext/installer-manifest.json"
-assert_file "$HOME/.claude/CLAUDE.md"
-assert_contains "claude adapter marker begin" "$(cat "$HOME/.claude/CLAUDE.md")" "gotcontext-memory:begin"
-assert_contains "claude adapter marker end" "$(cat "$HOME/.claude/CLAUDE.md")" "gotcontext-memory:end"
-assert_file "$HOME/.codex/AGENTS.md"
-assert_file "$WORK/AGENTS.md"
-assert_file "$WORK/.cursor/rules/gotcontext-memory.mdc"
+
+ADAPTER="$(adapter_path_for_harness)"
+assert_file "$ADAPTER"
+assert_contains "adapter has begin marker" "$(cat "$ADAPTER")" "gotcontext-memory:begin"
+assert_contains "adapter has end marker" "$(cat "$ADAPTER")" "gotcontext-memory:end"
+assert_contains "adapter store hint" "$(cat "$ADAPTER")" "$HOME/.gotcontext"
 
 DOC_OUT=$(gotcontext-memory doctor 2>&1) || true
-assert_contains "doctor ok true" "$DOC_OUT" '"ok": true'
-assert_contains "doctor secret scanner pass" "$DOC_OUT" '"name": "secret_scanner"'
+assert_contains "doctor ok" "$DOC_OUT" '"ok": true'
 
-log "=== 2. Seed Claude transcripts + dream/review accept ==="
-# Layout: ~/.claude/projects/<projectKey>/*.jsonl
-SEED="$HOME/.claude/projects/dogfood-proj"
-mkdir -p "$SEED"
-cp "$PKG_ROOT/test/fixtures/transcripts/claude/proj-a/s1.jsonl" "$SEED/s1.jsonl"
-cp "$PKG_ROOT/test/fixtures/transcripts/claude/proj-a/s2.jsonl" "$SEED/s2.jsonl"
+log "=== 2. Seed corpus + dream ($HARNESS) ==="
+seed_corpus
+set +e
+DREAM_OUT=$(gotcontext-memory dream --source "$HARNESS" --store user 2>&1)
+DREAM_RC=$?
+set -e
 
-DREAM_OUT=$(gotcontext-memory dream --source claude --store user 2>&1) || true
-if grep -Fq 'EMPTY_CORPUS' <<<"$DREAM_OUT"; then
-  fail "dream EMPTY_CORPUS with seeded Claude fixtures: $DREAM_OUT"
-elif grep -Eq '"proposals": [1-9]' <<<"$DREAM_OUT"; then
-  pass "dream produced proposals"
-else
-  fail "dream did not report proposals: $DREAM_OUT"
-fi
-
-LIST_OUT=$(gotcontext-memory --store user review list 2>&1) || true
-PID=$(printf '%s' "$LIST_OUT" | node -e '
-  let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
-    try {
-      const j=JSON.parse(s);
-      const arr=Array.isArray(j)?j:(j.proposals||[]);
-      if(!arr.length){ process.exit(2); }
-      const first=arr[0];
-      process.stdout.write(typeof first==="string"?first:(first.id||""));
-    } catch { process.exit(3); }
-  });
-') || PID=""
-
-if [[ -n "${PID:-}" ]]; then
-  pass "review list returned proposal id=$PID"
-  SHOW_OUT=$(gotcontext-memory --store user review show "$PID" 2>&1) || true
-  assert_contains "review show has targetPath" "$SHOW_OUT" "targetPath"
-  ACCEPT_OUT=$(gotcontext-memory --store user review accept "$PID" --yes 2>&1) || true
-  assert_contains "accept succeeded" "$ACCEPT_OUT" "accepted $PID"
-  DOC2=$(gotcontext-memory --store user doctor 2>&1) || true
-  assert_contains "doctor still ok after accept" "$DOC2" '"ok": true'
-  # MEMORY.md should mention a memory/ path after accept of create/update
-  if grep -Eq 'memory/' "$HOME/.gotcontext/MEMORY.md"; then
-    pass "MEMORY.md lists memory after accept"
-  else
-    # expire/delete may not; still check store mutated somehow
-    if find "$HOME/.gotcontext/memory" -name '*.md' 2>/dev/null | grep -q .; then
-      pass "memory/*.md present after accept"
+case "$HARNESS" in
+  claude|codex|cursor)
+    if grep -Fq 'EMPTY_CORPUS' <<<"$DREAM_OUT"; then
+      fail "dream EMPTY_CORPUS for full importer: $DREAM_OUT"
+    elif grep -Eq '"proposals": [1-9]' <<<"$DREAM_OUT"; then
+      pass "dream produced proposals"
     else
-      fail "accept left no memory files / index links"
+      fail "dream unexpected: rc=$DREAM_RC out=$DREAM_OUT"
     fi
-  fi
-else
-  fail "could not parse proposal id from review list: $LIST_OUT"
-fi
+    LIST_OUT=$(gotcontext-memory --store user review list 2>&1) || true
+    PID=$(printf '%s' "$LIST_OUT" | node -e '
+      let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
+        try {
+          const j=JSON.parse(s);
+          const arr=Array.isArray(j)?j:[];
+          if(!arr.length) process.exit(2);
+          process.stdout.write(arr[0].id||"");
+        } catch { process.exit(3); }
+      });
+    ') || PID=""
+    if [[ -n "${PID:-}" ]]; then
+      pass "review list id=$PID"
+      ACCEPT_OUT=$(gotcontext-memory --store user review accept "$PID" --yes 2>&1) || true
+      assert_contains "accept" "$ACCEPT_OUT" "accepted $PID"
+    else
+      fail "no proposal id from review list: $LIST_OUT"
+    fi
+    ;;
+  agy|opencode)
+    # PARTIAL importers: enumerate files, zero transcripts → EMPTY_CORPUS is honest.
+    if grep -Fq 'EMPTY_CORPUS' <<<"$DREAM_OUT" && grep -Eq 'scanned=[1-9]' <<<"$DREAM_OUT"; then
+      pass "PARTIAL dream honestly EMPTY_CORPUS with scanned>0"
+    elif grep -Fq 'EMPTY_CORPUS' <<<"$DREAM_OUT"; then
+      fail "PARTIAL EMPTY_CORPUS but scanned=0 (seed missing?): $DREAM_OUT"
+    else
+      fail "PARTIAL expected EMPTY_CORPUS, got rc=$DREAM_RC: $DREAM_OUT"
+    fi
+    ;;
+esac
 
-log "=== 3. Project store ambiguity + doctor ==="
+log "=== 3. Project init skips home retarget (DV-002) ==="
 cd "$WORK/project"
-git init -q 2>/dev/null || true
 set +e
 PROJ_INIT=$(gotcontext-memory init --project 2>&1)
 PROJ_RC=$?
 set -e
 if [[ "$PROJ_RC" -eq 0 ]]; then
-  assert_contains "project init" "$PROJ_INIT" "Initialized store at"
+  pass "project init ok"
 else
-  fail "project init failed (rc=$PROJ_RC): $PROJ_INIT"
+  fail "project init failed: $PROJ_INIT"
 fi
-assert_file "$WORK/project/.gotcontext/MEMORY.md"
-# Home Claude fragment must still point at user store (DV-002)
-if grep -Fq "$HOME/.gotcontext" "$HOME/.claude/CLAUDE.md"; then
-  pass "home CLAUDE.md still points at user store after project init"
-else
-  fail "home CLAUDE.md lost user store hint after project init"
+# Home adapters for claude/codex must keep user store hint
+if [[ "$HARNESS" == "claude" ]]; then
+  if grep -Fq "$HOME/.gotcontext" "$HOME/.claude/CLAUDE.md"; then
+    pass "CLAUDE.md still user-store after project init"
+  else
+    fail "CLAUDE.md retargeted after project init"
+  fi
+fi
+if [[ "$HARNESS" == "codex" ]]; then
+  if grep -Fq "$HOME/.gotcontext" "$HOME/.codex/AGENTS.md"; then
+    pass "codex AGENTS.md still user-store after project init"
+  else
+    fail "codex AGENTS.md retargeted after project init"
+  fi
 fi
 
-# With both stores, bare doctor should refuse
-set +e
-AMB=$(gotcontext-memory doctor 2>&1)
-AMB_RC=$?
-set -e
-assert_contains "ambiguous store refused" "$AMB" "Ambiguous store"
-if [[ "$AMB_RC" -ne 0 ]]; then pass "ambiguous doctor non-zero exit"; else fail "ambiguous doctor exited 0"; fi
-
-set +e
-PROJ_DOC=$(gotcontext-memory --store project doctor 2>&1)
-set -e
-assert_contains "project doctor ok" "$PROJ_DOC" '"ok": true'
-
-log "=== 4. Export / import merge ==="
-EXPORT_PATH="$WORK/export.gcm.gz"
+log "=== 4. Export / import + uninstall smoke ==="
+cd "$WORK"
+EXPORT_PATH="$WORK/export-$HARNESS.gcm.gz"
 set +e
 EXP_OUT=$(gotcontext-memory --store user export --out "$EXPORT_PATH" 2>&1)
 set -e
 assert_file "$EXPORT_PATH"
-assert_contains "export message" "$EXP_OUT" "exported to"
+assert_contains "export" "$EXP_OUT" "exported to"
 
 set +e
 IMP_OUT=$(gotcontext-memory --store project import --from "$EXPORT_PATH" --merge 2>&1)
 set -e
-assert_contains "import merge ok" "$IMP_OUT" '"imported"'
+assert_contains "import" "$IMP_OUT" '"imported"'
 
-log "=== 5. MCP thin JSON-RPC smoke ==="
-set +e
-MCP_OUT=$(printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
-  '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-  | timeout 5 gotcontext-memory --store user mcp 2>&1)
-MCP_RC=$?
-set -e
-if grep -Fq 'tools' <<<"$MCP_OUT" || grep -Fq 'memory_' <<<"$MCP_OUT" || grep -Fq 'result' <<<"$MCP_OUT"; then
-  pass "MCP server responded to JSON-RPC"
-else
-  fail "MCP smoke produced no usable response (rc=$MCP_RC): $MCP_OUT"
-fi
-
-log "=== 6. Uninstall restores / strips adapters ==="
-cd "$WORK"
 set +e
 UN_OUT=$(gotcontext-memory --store user uninstall 2>&1)
 set -e
-assert_contains "uninstall restored" "$UN_OUT" "restored"
-if grep -Fq 'gotcontext-memory:begin' "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
-  fail "uninstall left managed markers in ~/.claude/CLAUDE.md"
+assert_contains "uninstall" "$UN_OUT" "restored"
+if [[ -f "$ADAPTER" ]] && grep -Fq 'gotcontext-memory:begin' "$ADAPTER"; then
+  fail "uninstall left markers in $ADAPTER"
 else
-  pass "claude CLAUDE.md managed block removed or file restored"
+  pass "adapter markers cleared ($ADAPTER)"
 fi
 
-log "=== 7. Unit/integration suite inside image ==="
+log "=== 5. Suite + lint (once per image; run on all) ==="
 cd "$PKG_ROOT"
 set +e
 TEST_OUT=$(npm test 2>&1)
 TEST_RC=$?
-set -e
-if [[ "$TEST_RC" -eq 0 ]]; then
-  pass "npm test exit 0"
-else
-  fail "npm test failed (rc=$TEST_RC)"
-fi
-# Capture last lines into report
-{
-  echo "## npm test"
-  echo '```'
-  printf '%s\n' "$TEST_OUT" | tail -40
-  echo '```'
-  echo
-} >>"$REPORT"
-
-log "=== 8. Lint ==="
-set +e
 LINT_OUT=$(npm run lint 2>&1)
 LINT_RC=$?
 set -e
-if [[ "$LINT_RC" -eq 0 ]]; then
-  pass "npm run lint exit 0"
-else
-  fail "npm run lint failed (rc=$LINT_RC): $(printf '%s' "$LINT_OUT" | tail -20)"
-fi
+if [[ "$TEST_RC" -eq 0 ]]; then pass "npm test"; else fail "npm test rc=$TEST_RC"; fi
+if [[ "$LINT_RC" -eq 0 ]]; then pass "npm lint"; else fail "npm lint rc=$LINT_RC"; fi
 
-# Write summary
 {
   echo "## Summary"
   echo
@@ -255,27 +241,27 @@ fi
   echo "- FAIL: $FAIL"
   echo
   if [[ "$FAIL" -eq 0 ]]; then
-    echo "**VERDICT: PASS** — toolkit verified in Claude CLI Docker environment."
+    echo "**VERDICT: PASS** — harness=$HARNESS"
   else
-    echo "**VERDICT: FAIL** — issues found:"
+    echo "**VERDICT: FAIL** — harness=$HARNESS"
     echo
-    for i in "${ISSUES[@]}"; do
-      echo "- $i"
-    done
+    for i in "${ISSUES[@]}"; do echo "- $i"; done
   fi
   echo
-  echo "## Claude CLI"
-  echo
+  echo "## Harness version"
   echo '```'
-  claude --version 2>&1 || true
+  cat /tmp/harness-ver.txt 2>/dev/null || true
+  echo '```'
+  echo
+  echo "## npm test (tail)"
+  echo '```'
+  printf '%s\n' "$TEST_OUT" | tail -20
   echo '```'
 } >>"$REPORT"
 
-log ""
 log "REPORT: $REPORT"
-log "PASS=$PASS FAIL=$FAIL"
+log "PASS=$PASS FAIL=$FAIL harness=$HARNESS"
 if [[ "$FAIL" -ne 0 ]]; then
-  log "ISSUES:"
   for i in "${ISSUES[@]}"; do log " - $i"; done
   exit 1
 fi

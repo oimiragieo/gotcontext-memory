@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
 import { agyCorpus } from "./corpus/agy.js";
@@ -7,6 +6,7 @@ import { claudeCorpus } from "./corpus/claude.js";
 import { codexCorpus } from "./corpus/codex.js";
 import { cursorCorpus } from "./corpus/cursor.js";
 import { opencodeCorpus } from "./corpus/opencode.js";
+import { type CorpusSourceName, defaultCorpusRoots } from "./corpus/roots.js";
 import { runDoctor } from "./doctor.js";
 import { runDream } from "./dream/run.js";
 import { fileExists } from "./hash.js";
@@ -120,20 +120,18 @@ export function buildCli(): Command {
         cursor: cursorCorpus,
         agy: agyCorpus,
         opencode: opencodeCorpus,
-      };
+      } as const;
       const selected =
         opts.source === "all"
-          ? Object.values(sources)
-          : [sources[opts.source as keyof typeof sources]].filter(Boolean);
+          ? (Object.keys(sources) as CorpusSourceName[])
+          : ([opts.source] as CorpusSourceName[]).filter((k) => k in sources);
       let scanned = 0;
       let included = 0;
       let excluded = 0;
       const transcripts = [];
-      for (const src of selected) {
-        const roots =
-          src.name === "claude"
-            ? [path.join(os.homedir(), ".claude", "projects")]
-            : [path.join(store.root, "fixtures", src.name)];
+      for (const name of selected) {
+        const src = sources[name];
+        const roots = defaultCorpusRoots(name);
         const result = await src.scan({
           scope,
           roots,

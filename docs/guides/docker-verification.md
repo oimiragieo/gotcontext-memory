@@ -1,26 +1,42 @@
-# Docker verification (Claude Code CLI)
+# Docker verification (multi-harness)
 
-**Host:** Windows PowerShell + Docker Desktop (not the WSL `docker` socket).  
-**Entry:** `pwsh -File scripts/docker-verify.ps1` or `npm run verify:docker`
+**Host:** Windows PowerShell + Docker Desktop (not the WSL `docker` socket).
+
+```powershell
+pwsh -File scripts/docker-verify.ps1              # all harnesses
+pwsh -File scripts/docker-verify.ps1 -Harness codex
+npm run verify:docker
+```
 
 ---
 
-## What it proves
+## Images
 
-The image installs **Claude Code CLI** (`claude`) and **gotcontext-memory**, then runs
-`docker/verify.sh` which asserts the designed CUJs:
+| Image | Dockerfile | CLI install |
+|---|---|---|
+| `gotcontext-memory-base` | `Dockerfile.base` | toolkit only |
+| `gotcontext-memory-claude` | `Dockerfile.claude` | `npm i -g @anthropic-ai/claude-code` |
+| `gotcontext-memory-codex` | `Dockerfile.codex` | `npm i -g @openai/codex` |
+| `gotcontext-memory-opencode` | `Dockerfile.opencode` | `npm i -g opencode-ai` |
+| `gotcontext-memory-agy` | `Dockerfile.agy` | `curl …/antigravity.google/cli/install.sh` |
+| `gotcontext-memory-cursor` | `Dockerfile.cursor` | **stub** `cursor` on PATH (no official Linux headless IDE CLI) |
 
-1. Binaries on `PATH` (`claude`, `gotcontext-memory`)
-2. `init` creates `~/.gotcontext` + harness fragments (incl. `~/.claude/CLAUDE.md`)
-3. `doctor` OK on empty store
-4. Seed Claude JSONL under `~/.claude/projects` → `dream` → `review accept`
-5. Project store + ambiguous-store refusal
-6. `export` / `import --merge`
-7. Thin MCP JSON-RPC smoke
-8. `uninstall` strips managed markers
-9. In-image `npm test` + `npm run lint`
+Per-harness reports: `docker/out/<harness>/VERIFY_REPORT.md`  
+Matrix rollup: `docker/out/MATRIX_SUMMARY.md`
 
-Report artifact: `docker/out/VERIFY_REPORT.md` (bind-mounted).
+---
+
+## What each harness proves
+
+Shared: `gotcontext-memory` on PATH, `init` + adapter markers, `doctor`, project init
+(DV-002), export/import, uninstall (DV-003), in-image `npm test` + lint.
+
+| Harness | Corpus dogfood |
+|---|---|
+| claude / codex / cursor | Seed package fixtures into `defaultCorpusRoots()` → dream → accept |
+| agy / opencode | PARTIAL: seed placeholder files → dream must report `EMPTY_CORPUS` with `scanned>0` |
+
+Dream roots live in `src/corpus/roots.ts` (not under the store).
 
 ---
 
@@ -28,15 +44,14 @@ Report artifact: `docker/out/VERIFY_REPORT.md` (bind-mounted).
 
 | ID | Symptom | Fix |
 |---|---|---|
-| DV-001 | `npm link` / global bin: `import: not found` — `dist/cli.js` executed as shell | Add `#!/usr/bin/env node` shebang to `src/cli.ts` (preserved by `tsc`) |
-| DV-002 | `init --project` after user `init` throws "Managed block tampered" on `~/.claude/CLAUDE.md` (storeHint retarget) | `init --project` passes `skipHomeAdapters`; only cwd adapters (AGENTS.md / Cursor rules) are stamped |
-| DV-003 | `uninstall` left managed markers when re-init had snapshotted a preImage that already contained the managed block (volume leftover) | Capture preImage as preface-only (`stripManagedBlock`); uninstall always strips markers after restore |
-
-Further rows are appended as verification finds them.
+| DV-001 | Global bin no shebang | `#!/usr/bin/env node` on `cli.ts` |
+| DV-002 | `init --project` retargeted home adapters | `skipHomeAdapters` |
+| DV-003 | Uninstall restored managed markers | Preface-only preImage + strip on uninstall |
+| DV-004 | `dream --source` for non-claude read `$store/fixtures/…` (wrong) | `defaultCorpusRoots()` per harness |
 
 ---
 
-## Notes
+## Honesty
 
-- Claude Code is installed via `npm install -g @anthropic-ai/claude-code` (ships native linux binary). No Anthropic API key is required for this harness — we only need the CLI present and a realistic `~/.claude` layout.
-- Rebuild after local source changes: `pwsh -File scripts/docker-verify.ps1` (image `COPY`s sources at build time).
+- Cursor image uses a **stub binary**; product surfaces verified are the adapter path and corpus importer.
+- agy/OpenCode corpus remains **PARTIAL** until real transcript parsers land — verify asserts that honesty, not fake proposals.

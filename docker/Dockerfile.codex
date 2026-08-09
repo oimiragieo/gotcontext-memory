@@ -1,0 +1,9 @@
+ARG BASE_IMAGE=gotcontext-memory-base
+FROM ${BASE_IMAGE}
+
+USER root
+ARG CODEX_VERSION=latest
+RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
+  && codex --version
+USER dogfood
+ENV GCM_HARNESS=codex
