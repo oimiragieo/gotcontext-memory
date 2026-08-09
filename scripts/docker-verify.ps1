@@ -21,16 +21,17 @@ $targets = if ($Harness -eq "all") { $all } else { @($Harness) }
 $outRoot = Join-Path $RepoRoot "docker/out"
 New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
 
-function Invoke-DockerBuild([string[]]$Args) {
-  if ($NoCache) { $Args = @("build", "--no-cache") + $Args[1..($Args.Length - 1)] }
-  Write-Host "==> docker $($Args -join ' ')"
-  & docker @Args
+function Invoke-DockerBuild([string[]]$DockerArgs) {
+  if ($NoCache) {
+    $DockerArgs = @("build", "--no-cache") + $DockerArgs[1..($DockerArgs.Length - 1)]
+  }
+  Write-Host "==> docker $($DockerArgs -join ' ')"
+  & docker @DockerArgs
   if ($LASTEXITCODE -ne 0) { throw "docker build failed ($LASTEXITCODE)" }
 }
 
 Write-Host "==> Building base image $BaseImage"
-$baseArgs = @("build", "-f", "docker/Dockerfile.base", "-t", $BaseImage, ".")
-Invoke-DockerBuild $baseArgs
+Invoke-DockerBuild @("build", "-f", "docker/Dockerfile.base", "-t", $BaseImage, ".")
 
 $results = @()
 foreach ($h in $targets) {
