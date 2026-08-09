@@ -19,6 +19,9 @@ navigable.
 | 5 | [architecture/overview.md](./architecture/overview.md) | How modules fit together |
 | 6 | Feature pages under [features/](./features/) | Deep dives per subsystem |
 | 7 | [HONESTY.md](./HONESTY.md) | Claim boundaries (read before demos or PRs) |
+| 8 | [BACKLOG.md](./BACKLOG.md) | Complete open work list |
+| 9 | [CEO_UPDATE_2026-08-09.md](./CEO_UPDATE_2026-08-09.md) | Latest human brief |
+| 10 | [LESSONS_2026-08-09.md](./LESSONS_2026-08-09.md) | Lessons L1–L14 to retain |
 
 ---
 

@@ -74,7 +74,7 @@ Minimal path using Node against the library is documented in
 CLI shape once transcripts are available:
 
 ```bash
-gotcontext-memory dream --source claude --store user
+gotcontext-memory dream --source claude --store user --force
 gotcontext-memory review list
 gotcontext-memory review show <id>
 gotcontext-memory review accept <id> --yes

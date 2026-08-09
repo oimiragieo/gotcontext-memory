@@ -44,8 +44,14 @@ function assertCanonicalRel(rel: string): void {
   }
 }
 
+/** Count logical lines across LF, CR, CRLF, and Unicode line/paragraph separators. */
+export function countIndexLines(body: string): number {
+  if (body.length === 0) return 1;
+  return body.split(/\r\n|\n|\r|\u2028|\u2029/).length;
+}
+
 export function checkIndexCaps(body: string): void {
-  const lines = body.split(/\r?\n/).length;
+  const lines = countIndexLines(body);
   const bytes = Buffer.byteLength(body, "utf8");
   if (lines > LINE_CAP || bytes > BYTE_CAP) {
     throw new IndexCapExceeded(lines, bytes, LINE_CAP, BYTE_CAP);
@@ -104,23 +110,17 @@ export class MemoryStore {
         if (!(rel === "MEMORY.md" || rel.startsWith("memory/"))) {
           throw new Error(`withCanonicalLocks only for canonical paths: ${rel}`);
         }
-        const abs = await resolveUnderStore(this.root, rel);
-        await mkdir(path.dirname(abs), { recursive: true });
-        if (!(await fileExists(abs))) {
-          const stub = path.join(this.root, "locks", `${sha256Hex(rel)}.lock`);
-          await writeFile(stub, "", { flag: "a" });
-          const release = await lockfile.lock(stub, {
-            retries: { retries: 10, minTimeout: 20, maxTimeout: 200 },
-            stale: 10_000,
-          });
-          releases.push(release);
-        } else {
-          const release = await lockfile.lock(abs, {
-            retries: { retries: 10, minTimeout: 20, maxTimeout: 200 },
-            stale: 10_000,
-          });
-          releases.push(release);
-        }
+        // Always lock a stable stub under locks/ — never abs — so create↔delete
+        // and absent↔present races share one mutex identity (DD-STORE-001).
+        await resolveUnderStore(this.root, rel);
+        await mkdir(path.join(this.root, "locks"), { recursive: true });
+        const stub = path.join(this.root, "locks", `${sha256Hex(rel)}.lock`);
+        await writeFile(stub, "", { flag: "a" });
+        const release = await lockfile.lock(stub, {
+          retries: { retries: 10, minTimeout: 20, maxTimeout: 200 },
+          stale: 10_000,
+        });
+        releases.push(release);
       }
       return await fn(new LockedStore(this));
     } finally {

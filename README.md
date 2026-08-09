@@ -24,7 +24,7 @@ Prefer the `gotcontext-memory` binary. The `gcm` alias can collide with **Git Cr
 ```bash
 gotcontext-memory init          # ~/.gotcontext
 gotcontext-memory init --project
-gotcontext-memory dream --source claude --store user
+gotcontext-memory dream --source claude --store user --force
 gotcontext-memory review list
 gotcontext-memory review show <id>
 gotcontext-memory review accept <id> --yes

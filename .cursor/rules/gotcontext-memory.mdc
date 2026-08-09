@@ -1,0 +1,19 @@
+---
+description: gotcontext-memory HITL honesty, lock/index races, MCP default-off, dream FP filters, inert-test traps
+alwaysApply: true
+---
+
+# gotcontext-memory (always)
+
+Before changing dream/store/MCP/review:
+
+1. Read `docs/HONESTY.md`, `docs/BACKLOG.md`, `docs/LESSONS_2026-08-09.md`.
+2. Canonical memory = HITL accept only unless `mcp.allowCommit: true` (conscious non-HITL).
+3. Locks always use `locks/<sha256(rel)>.lock` — never abs-vs-stub split.
+4. Accept regenerates `MEMORY.md` under lock; concurrency tests must be multi-process.
+5. No bare `always`/`prefer` preference regex; deny pong/ping/health.
+6. Doctor caps must fail when over — detect≠enforce.
+7. Do not claim omega `memory_dream` / LLM `transcript_dream` parity.
+8. Version 0.9.0 until CEO publish gate. Prefer `tg` for symbol audits.
+9. Verify: `npm test && npm run lint && npm run build`.
+10. Dream CLI: `dream.enabled` or `--force`.

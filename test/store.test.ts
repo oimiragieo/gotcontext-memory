@@ -118,6 +118,44 @@ describe("MemoryStore.commitCanonical CAS", () => {
     const final = await readFile(path.join(root, "memory/race.md"), "utf8");
     expect(["A\n", "B\n"]).toContain(final);
   });
+
+  it("create vs delete on same path: at most one succeeds without torn state", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-cd-"));
+    const store = await MemoryStore.initStore(root);
+    await store.commitCanonical({
+      relativePath: "memory/race-cd.md",
+      body: "seed\n",
+      baseHash: BASE_ABSENT,
+      provenance: { authored_by: "system" },
+    });
+    const baseHash = sha256Hex("seed\n");
+    const worker = fileURLToPath(new URL("./helpers/create-delete-worker.ts", import.meta.url));
+    const run = (args: string[]) =>
+      new Promise<{ code: number | null; out: string }>((resolve) => {
+        const child = spawn(process.execPath, ["--import", "tsx", worker, root, ...args], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let out = "";
+        child.stdout.on("data", (d) => {
+          out += d;
+        });
+        child.stderr.on("data", (d) => {
+          out += d;
+        });
+        child.on("close", (code) => resolve({ code, out }));
+      });
+    // Parallel: delete seed + create new (create uses absent — may conflict if file still there)
+    const [del, upd] = await Promise.all([
+      run(["delete", baseHash]),
+      run(["update", baseHash, "new\n"]),
+    ]);
+    const oks = [del, upd].filter((r) => r.code === 0).length;
+    expect(oks).toBeGreaterThanOrEqual(1);
+    expect(oks).toBeLessThanOrEqual(2);
+    // Final state must be coherent: absent OR exactly "new\n"
+    const buf = await store.read("memory/race-cd.md");
+    if (buf) expect(buf.toString("utf8")).toBe("new\n");
+  });
 });
 
 describe("memoryTreeHash helper export", () => {

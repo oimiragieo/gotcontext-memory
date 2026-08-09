@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { CorpusSource, ScanOpts, ScanResult, Transcript } from "./types.js";
+import { corpusScanLabel } from "./types.js";
 
 /**
  * Cursor corpus:
@@ -104,7 +105,7 @@ export const cursorCorpus: CorpusSource = {
       excluded_permission: excluded,
       malformed,
       errors,
-      label: scanned === 0 ? "EMPTY" : "OK",
+      label: corpusScanLabel(scanned, transcripts.length),
     };
   },
 };

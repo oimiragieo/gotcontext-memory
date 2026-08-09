@@ -5,7 +5,7 @@ import { parseFrontmatter } from "./frontmatter.js";
 import { fileExists } from "./hash.js";
 import { scan } from "./secrets.js";
 import type { MemoryStore } from "./store.js";
-import { BYTE_CAP, LINE_CAP } from "./store.js";
+import { BYTE_CAP, LINE_CAP, countIndexLines } from "./store.js";
 
 export type DoctorReport = {
   root: string;
@@ -83,6 +83,7 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
     checks.push({ name: "index", status: "fail", detail: "MEMORY.md missing" });
   } else {
     const text = index.toString("utf8");
+    const lineCount = countIndexLines(text);
     const lines = text.split(/\r?\n/);
     for (const line of lines) {
       const m = line.match(/\((memory\/[^)]+)\)/);
@@ -97,10 +98,12 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
         });
       }
     }
+    const overCap = lineCount > LINE_CAP || index.length > BYTE_CAP;
+    if (overCap) ok = false;
     checks.push({
       name: "index_caps",
-      status: "pass",
-      detail: `lines=${lines.length}/${LINE_CAP} bytes=${index.length}/${BYTE_CAP}`,
+      status: overCap ? "fail" : "pass",
+      detail: `lines=${lineCount}/${LINE_CAP} bytes=${index.length}/${BYTE_CAP}`,
     });
   }
 

@@ -10,8 +10,49 @@
   `MemoryStore.commitCanonical` / `deleteCanonical` (CAS + secret scan + MEMORY.md caps).
 - Parity target: omega / house **transcript_dream HITL** loop only.
 - We do **not** claim parity with omega-orchestrator `memory_dream` auto-supersede.
-- Fresh install never dreams unprompted (`dream.enabled` default false; no scheduler in v1).
+- Fresh install never dreams unprompted (`dream.enabled` default false; CLI `dream`
+  refuses unless `--force` or `dream.enabled` true; no scheduler in v1).
+- MCP `memory_commit` is **default-off** (`mcp.allowCommit: false`). Agents use
+  `memory_propose` → human `review accept`. Opt-in commit is a conscious non-HITL mode.
 - Version is **0.9.0** until CEO publish gate + CI matrix green on a clean checkout for `1.0.0`.
+
+## Dreaming: what the two signals are (updated 2026-08-09)
+
+Dreaming now emits proposals from **two** signals. Both are still proposals-only and
+still HITL — nothing below changes the never-auto-apply rule.
+
+1. **Explicit preferences** — regex anchored on `please remember` / `from now on`.
+2. **Cross-session prevalence** — recurring tool errors, hook blocks and user
+   corrections, reported as `k/n sessions` with cited session ids and line numbers.
+
+What this is **not**:
+
+- **Not an LLM brain.** Patterns are clustered by normalised string key
+  (`signalKey`), not by meaning. Two phrasings of the same underlying problem land in
+  different buckets. Prevalence is *counted*, never inferred.
+- **Not all of history.** Prevalence is measured over the newest `--max-sessions`
+  per source (default **400**), not the whole corpus. The denominator in a proposal is
+  that window. Unbounded, a real 17,263-session corpus produced 386 proposals with
+  denominators like `16/17263` — technically true, practically meaningless, and far
+  more than a human will review.
+- **Still no auto-supersede, still no scheduler.**
+
+### Corpus reading is streamed and bounded
+
+Transcripts are streamed line-by-line into ~1 KB digests; whole transcripts are never
+held in memory. This is load-bearing, not an optimisation: measured on a real
+workstation the corpus was **9.6 GB / 11,683 Claude transcripts**, including a single
+**2.3 GB** file that `readFile` rejects outright (`File size … is greater than 2 GiB`).
+A full `dream` over 17,264 sessions completes under a **512 MB** heap.
+
+- Per-file reads stop at a byte ceiling and are reported as **`truncated`**, counted
+  separately from **`malformed`**. A size limit is a bounded read, not corruption, and
+  conflating the two hides an OOM-class event behind a parse-error count.
+- **Known gap:** the digest path enumerates `*.jsonl` only, so Cursor's read-only
+  `.vscdb` SQLite corpus is **no longer consulted by `dream`** (its `.jsonl` files still
+  are). `cursorCorpus` still implements the SQLite reader; it is simply not wired into
+  the streaming path. This is a coverage regression accepted in exchange for bounded
+  memory, and it should be closed before 1.0.0.
 
 ## Adapter / corpus matrix
 
@@ -19,7 +60,7 @@
 |---|---|---|
 | Claude Code | CLAUDE.md managed block | Full — fixture-pinned Claude JSONL (incl. Skill tool_use when present) |
 | Codex | AGENTS.md managed block | Full turns — fixture-pinned Codex JSONL; tool/skill metadata often empty in fixtures |
-| Cursor | `.cursor/rules/*.mdc` | Full turns — JSONL + read-only `node:sqlite` `.vscdb`; tool/skill metadata partial |
+| Cursor | `.cursor/rules/*.mdc` | JSONL via digest dream; `.vscdb` still in `cursorCorpus` but **not** wired into streaming dream (gap BL-DRM-016); tool/skill metadata partial |
 | Antigravity (`agy`) | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
 | OpenCode | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
 

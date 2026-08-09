@@ -47,7 +47,7 @@ silent “clean” success.
 ### Stage C — Extract proposals
 
 `extractProposals` looks for user/human turns matching preference-like phrases
-(`please remember`, `always`, `prefer`, `from now on`). It builds `create`
+(`please remember`, `from now on` — not bare `always`/`prefer`; health/pong spans denied). It builds `create`
 proposals with deterministic ids (`proposalId` = sha256 of stable fields).
 
 Additionally, `staleExpireProposals` may emit `expire` actions for memory files

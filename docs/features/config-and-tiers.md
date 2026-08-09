@@ -38,12 +38,15 @@ Default (via `DEFAULT_CONFIG` / `defaultConfigJson()`):
 
 ### Validation highlights
 
-- Top-level keys only: `dream`, `memory`, `secrets`
+- Top-level keys only: `dream`, `memory`, `secrets`, `mcp`
 - Forbidden: `dream.schedule`, `dream.auto`, and bare `schedule`/`auto` under dream
 - Unknown top-level keys → throw naming the key
 
-`dream.enabled` is informational for operators today; dreaming is still an
-explicit CLI action (no scheduler). Keeping the default `false` documents intent.
+`dream.enabled` defaults **false**. CLI `dream` refuses unless it is true or you
+pass `--force`. There is still no scheduler — human invocation (or forced dogfood)
+is required. Keeping the default `false` documents “no unprompted dreaming.”
+
+`mcp.allowCommit` defaults **false** (HITL-only). Set true only for conscious non-HITL agent commits.
 
 ### Policy fields
 

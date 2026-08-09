@@ -1,10 +1,16 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { sha256Hex } from "../src/hash.js";
 import { assertSafeRelativePath } from "../src/paths.js";
-import { BASE_ABSENT, CasConflict, MemoryStore } from "../src/store.js";
+import {
+  BASE_ABSENT,
+  CasConflict,
+  MemoryStore,
+  checkIndexCaps,
+  countIndexLines,
+} from "../src/store.js";
 
 describe("path containment arms", () => {
   it("rejects absolute, drive, and UNC-shaped relatives", () => {
@@ -22,9 +28,12 @@ describe("path containment arms", () => {
     const link = path.join(root, "memory", "escape-link");
     try {
       await symlink(outside, link, "dir");
-    } catch {
-      // Windows may lack symlink privilege — skip with labeled empty
-      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "EPERM" || code === "EACCES" || code === "ENOTSUP") {
+        return;
+      }
+      throw err;
     }
     await expect(
       store.commitCanonical({
@@ -34,6 +43,14 @@ describe("path containment arms", () => {
         provenance: { authored_by: "human" },
       }),
     ).rejects.toThrow(/Symlink escape|Path containment|Path escapes/);
+  });
+});
+
+describe("index line counting", () => {
+  it("CR-only separators count as lines for LINE_CAP", () => {
+    const body = Array.from({ length: 201 }, (_, i) => `L${i}`).join("\r");
+    expect(countIndexLines(body)).toBe(201);
+    expect(() => checkIndexCaps(body)).toThrow(/IndexCapExceeded/);
   });
 });
 
@@ -67,7 +84,6 @@ describe("delete + rollback", () => {
       provenance: { authored_by: "human" },
     });
     expect(await store.read("memory/x.md")).toBeNull();
-    // re-create then rollback to v1 revision
     await store.commitCanonical({
       relativePath: "memory/x.md",
       body: "v3\n",

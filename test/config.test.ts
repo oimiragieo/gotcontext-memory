@@ -18,6 +18,15 @@ describe("config + store tiers", () => {
 
   it("default dream.enabled is false (never unprompted)", () => {
     expect(DEFAULT_CONFIG.dream.enabled).toBe(false);
+    expect(DEFAULT_CONFIG.mcp.allowCommit).toBe(false);
+  });
+
+  it("accepts mcp.allowCommit opt-in", () => {
+    const cfg = validateConfigObject({
+      dream: { enabled: false },
+      mcp: { allowCommit: true },
+    });
+    expect(cfg.mcp.allowCommit).toBe(true);
   });
 
   it("ambiguous store refuses with valid options", () => {

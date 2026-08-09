@@ -63,6 +63,17 @@ describe("corpus importers", () => {
     expect(sqlite?.turns.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("claude: scanned>0 included=0 → PARTIAL not OK", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-mal-"));
+    const proj = path.join(root, "proj");
+    await mkdir(proj, { recursive: true });
+    await writeFile(path.join(proj, "bad.jsonl"), "{not-json\n", "utf8");
+    const r = await claudeCorpus.scan({ scope: "user", roots: [root] });
+    expect(r.scanned).toBeGreaterThan(0);
+    expect(r.included).toBe(0);
+    expect(r.label).toBe("PARTIAL");
+  });
+
   it("agy/opencode stubs: PARTIAL label + candidate enumeration", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "gcm-stub-"));
     await mkdir(path.join(root, "x"), { recursive: true });

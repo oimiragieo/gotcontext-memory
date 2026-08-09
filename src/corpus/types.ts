@@ -27,6 +27,8 @@ export type Transcript = {
   turns: TranscriptTurn[];
 };
 
+export type ScanLabel = "OK" | "EMPTY" | "PARTIAL" | "PARTIAL — no dogfood receipts";
+
 export type ScanResult = {
   transcripts: Transcript[];
   scanned: number;
@@ -34,8 +36,15 @@ export type ScanResult = {
   excluded_permission: number;
   malformed: number;
   errors: Array<{ path: string; message: string }>;
-  label: "OK" | "EMPTY" | "PARTIAL — no dogfood receipts";
+  label: ScanLabel;
 };
+
+/** Honesty: OK only when at least one transcript was included. */
+export function corpusScanLabel(scanned: number, included: number): ScanLabel {
+  if (scanned === 0) return "EMPTY";
+  if (included === 0) return "PARTIAL";
+  return "OK";
+}
 
 export type ScanOpts = {
   cwd?: string;

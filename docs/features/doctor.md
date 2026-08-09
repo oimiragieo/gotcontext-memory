@@ -31,7 +31,7 @@ gotcontext-memory doctor --store user
 | `secret_scanner` | Planted AWS key must be detected (self-test) |
 | `memories` | Count of `memory/**/*.md` parsed; `EMPTY` if zero (“proves nothing”) |
 | `dangling_index` | MEMORY.md link target missing on disk → fail |
-| `index_caps` | Current lines/bytes vs caps (informational pass) |
+| `index_caps` | lines/bytes vs LINE_CAP/BYTE_CAP — **fail** when over (same counter as commit) |
 | `corpus_agy` / `corpus_opencode` | Always PARTIAL labels |
 | `accept_error_receipt` | Any `receipts/*.error.json` → fail with code |
 

@@ -4,7 +4,7 @@
  */
 import { createInterface } from "node:readline";
 import { MemoryStore } from "../store.js";
-import { handleToolCall } from "./handlers.js";
+import { handleToolCall, listMcpTools } from "./handlers.js";
 
 type Req = {
   jsonrpc: "2.0";
@@ -45,50 +45,7 @@ export async function runMcpServer(storeRoot: string): Promise<void> {
         continue;
       }
       if (req.method === "tools/list") {
-        reply(req.id, {
-          tools: [
-            {
-              name: "memory_read",
-              description: "Read a memory file",
-              inputSchema: {
-                type: "object",
-                properties: { path: { type: "string" } },
-                required: ["path"],
-              },
-            },
-            {
-              name: "memory_commit",
-              description: "CAS commit via MemoryStore.commitCanonical",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  path: { type: "string" },
-                  body: { type: "string" },
-                  baseHash: { type: "string" },
-                },
-                required: ["path", "body", "baseHash"],
-              },
-            },
-            {
-              name: "memory_search",
-              description: "List memory file paths",
-              inputSchema: { type: "object", properties: {} },
-            },
-            {
-              name: "memory_propose",
-              description: "Write a HITL proposal (operational only)",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  path: { type: "string" },
-                  body: { type: "string" },
-                  baseHash: { type: "string" },
-                },
-                required: ["path", "body"],
-              },
-            },
-          ],
-        });
+        reply(req.id, { tools: await listMcpTools(store) });
         continue;
       }
       if (req.method === "tools/call") {

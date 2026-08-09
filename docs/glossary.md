@@ -20,7 +20,7 @@ Terms appear here exactly as the codebase and docs use them.
 | **Harness / adapter** | A coding agent product (Claude Code, Codex, …). Adapter = managed instruction fragment installer for that product. |
 | **Managed block** | Text between `<!-- gotcontext-memory:begin -->` and `<!-- gotcontext-memory:end -->` written into harness instruction files. |
 | **Store tier** | `user` (`~/.gotcontext`) or `project` (`<cwd>/.gotcontext`). Writes must name a tier when both exist. |
-| **Secret scan** | Regex gate that rejects AWS keys, GitHub PATs, generic `sk-…` keys, and PEM private-key headers before canonical (and default operational) writes. |
+| **Secret scan** | Regex gate that rejects AWS keys, GitHub PATs, labeled `api_key`/`secret` + `sk-…`, bare `sk-` / `sk-proj-` tokens, `ENV=sk-…` forms, and PEM private-key headers before canonical (and default operational) writes. |
 | **Allowlist** | Named secret pattern names in `config.json` → `secrets.allowlist` that skip the scan. Recorded in revision provenance. |
 | **Index / `MEMORY.md`** | Human-readable table of contents regenerated from memory files. Hard-capped (~200 lines / 25KB). |
 | **Index cap** | `LINE_CAP=200`, `BYTE_CAP=25*1024`. Exceeding throws `IndexCapExceeded` — never auto-truncate. |

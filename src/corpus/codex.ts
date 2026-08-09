@@ -1,4 +1,5 @@
 import type { CorpusSource, ScanOpts, ScanResult, Transcript } from "./types.js";
+import { corpusScanLabel } from "./types.js";
 
 /** Codex session format (fixture-pinned): JSONL with {type,role,text,ts} */
 export const codexCorpus: CorpusSource = {
@@ -86,7 +87,7 @@ export const codexCorpus: CorpusSource = {
       excluded_permission: excluded,
       malformed,
       errors,
-      label: scanned === 0 ? "EMPTY" : "OK",
+      label: corpusScanLabel(scanned, transcripts.length),
     };
   },
 };

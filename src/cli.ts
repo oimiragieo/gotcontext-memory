@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { Command } from "commander";
+import { loadConfig } from "./config.js";
 import { agyCorpus } from "./corpus/agy.js";
 import { claudeCorpus } from "./corpus/claude.js";
 import { codexCorpus } from "./corpus/codex.js";
 import { cursorCorpus } from "./corpus/cursor.js";
 import { opencodeCorpus } from "./corpus/opencode.js";
 import { type CorpusSourceName, defaultCorpusRoots } from "./corpus/roots.js";
+import { corpusScanLabel } from "./corpus/types.js";
 import { runDoctor } from "./doctor.js";
-import { runDream } from "./dream/run.js";
+import { digestRoots } from "./dream/digest.js";
+import { runDreamFromDigests } from "./dream/run.js";
 import { fileExists } from "./hash.js";
 import { installFragments, uninstallFragments } from "./installer.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -110,9 +113,23 @@ export function buildCli(): Command {
     .command("dream")
     .option("--source <name>", "claude|codex|cursor|agy|opencode|all", "all")
     .option("--scope <tier>", "user|project")
+    .option("--force", "run even when dream.enabled is false")
+    .option(
+      "--max-sessions <n>",
+      "newest sessions per source to consider (bounds memory AND keeps prevalence meaningful)",
+      "400",
+    )
     .action(async (opts) => {
       const global = program.opts();
       const store = await openStore(global.store ?? opts.scope);
+      const cfg = await loadConfig(store.root);
+      if (!cfg.dream.enabled && !opts.force) {
+        console.error(
+          "dream.enabled is false; pass --force to run, or set dream.enabled true in config.json",
+        );
+        process.exitCode = 1;
+        return;
+      }
       const scope = (opts.scope ?? global.store ?? "user") as "user" | "project";
       const sources = {
         claude: claudeCorpus,
@@ -128,35 +145,67 @@ export function buildCli(): Command {
       let scanned = 0;
       let included = 0;
       let excluded = 0;
-      const transcripts = [];
+      // Digests, not transcripts. Accumulating parsed transcripts is what made a
+      // real corpus (9.6 GB here, one 2.3 GB file) impossible to dream over at all.
+      const digests = [];
+      let truncated = 0;
+      const sourceSummaries: Array<{
+        name: string;
+        label: string;
+        scanned: number;
+        included: number;
+        malformed: number;
+        truncated: number;
+      }> = [];
       for (const name of selected) {
         const src = sources[name];
         const roots = defaultCorpusRoots(name);
-        const result = await src.scan({
-          scope,
+        const result = await digestRoots({
           roots,
+          source: name,
           projectKey: scope === "project" ? path.basename(process.cwd()) : undefined,
+          // Bounded window. Unbounded, prevalence degrades into noise: a real run
+          // over 17,263 sessions reported "16/17263" — a true count with a
+          // denominator so large the ratio stopped meaning anything, and 386
+          // proposals no human would review.
+          maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
         });
         scanned += result.scanned;
         included += result.included;
         excluded += result.excluded_permission;
-        transcripts.push(...result.transcripts);
+        truncated += result.truncated;
+        digests.push(...result.digests);
+        sourceSummaries.push({
+          name,
+          label: corpusScanLabel(result.scanned, result.included),
+          scanned: result.scanned,
+          included: result.included,
+          malformed: result.malformed,
+          // Truncation is a bounded read, NOT corruption — reported separately so an
+          // oversized transcript can never masquerade as malformed JSONL.
+          truncated: result.truncated,
+        });
       }
       try {
-        const { proposals, withheldSecrets, dropped } = await runDream(store, transcripts, {
-          scanned,
-          included,
-          excluded_permission: excluded,
-        });
+        const { proposals, withheldSecrets, dropped, suppressedRejected, patterns } =
+          await runDreamFromDigests(store, digests, {
+            scanned,
+            included,
+            excluded_permission: excluded,
+          });
         console.log(
           JSON.stringify(
             {
               proposals: proposals.length,
+              patterns,
               withheldSecrets,
               dropped,
+              suppressedRejected,
+              truncated,
               scanned,
               included,
               excluded_permission: excluded,
+              sources: sourceSummaries,
             },
             null,
             2,

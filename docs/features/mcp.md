@@ -8,8 +8,9 @@
 
 ## Purpose
 
-Let harnesses that speak MCP-style tool calls read/search/commit/propose
-**without** bypassing `MemoryStore` gates.
+Let harnesses that speak MCP-style tool calls read/search/propose
+**without** bypassing `MemoryStore` gates. Direct `memory_commit` is **opt-in**
+(`mcp.allowCommit: true`) and is a conscious non-HITL mode.
 
 ---
 
@@ -30,9 +31,12 @@ into each harness’s MCP config in v0.9.
 | Tool | Writes? | Behavior |
 |---|---|---|
 | `memory_search` | No | List `memory/**` paths |
-| `memory_read` | No | Read file text |
-| `memory_commit` | Yes | `commitCanonical` with CAS |
+| `memory_read` | No | Read `MEMORY.md` or `memory/**` only |
 | `memory_propose` | Operational | Write a HITL proposal JSON |
+| `memory_commit` | Yes (opt-in) | Listed/callable only when `mcp.allowCommit` is true |
+
+Default config: `mcp.allowCommit: false` — `tools/list` omits commit; `tools/call`
+returns an error pointing operators at `memory_propose` + `review accept`.
 
 Stale `baseHash` → JSON-RPC error payload containing `CasConflict`.
 Planted secrets → rejected; tree hash unchanged.

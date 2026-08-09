@@ -128,7 +128,7 @@ assert_contains "doctor ok" "$DOC_OUT" '"ok": true'
 log "=== 2. Seed corpus + dream ($HARNESS) ==="
 seed_corpus
 set +e
-DREAM_OUT=$(gotcontext-memory dream --source "$HARNESS" --store user 2>&1)
+DREAM_OUT=$(gotcontext-memory dream --source "$HARNESS" --store user --force 2>&1)
 DREAM_RC=$?
 set -e
 

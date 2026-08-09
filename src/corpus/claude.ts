@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { CorpusSource, ScanOpts, ScanResult, Transcript, TranscriptTurn } from "./types.js";
+import { corpusScanLabel } from "./types.js";
 
 /** Fixture-pinned Claude Code JSONL: one JSON object per line with type/message fields. */
 export const claudeCorpus: CorpusSource = {
@@ -49,7 +50,7 @@ export const claudeCorpus: CorpusSource = {
     }
 
     const included = transcripts.length;
-    const label = scanned === 0 ? "EMPTY" : ("OK" as const);
+    const label = corpusScanLabel(scanned, included);
     return {
       transcripts,
       scanned,

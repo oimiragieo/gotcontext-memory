@@ -17,6 +17,10 @@ export type StoreConfig = {
   secrets: {
     allowlist: string[];
   };
+  mcp: {
+    /** When true, MCP exposes memory_commit (non-HITL). Default false. */
+    allowCommit: boolean;
+  };
 };
 
 const FORBIDDEN_KEYS = new Set(["dream.schedule", "dream.auto", "schedule", "auto"]);
@@ -25,6 +29,7 @@ export const DEFAULT_CONFIG: StoreConfig = {
   dream: { enabled: false, policy: {} },
   memory: { policy: {} },
   secrets: { allowlist: [] },
+  mcp: { allowCommit: false },
 };
 
 export function validateConfigObject(raw: unknown): StoreConfig {
@@ -33,7 +38,7 @@ export function validateConfigObject(raw: unknown): StoreConfig {
   }
   const obj = raw as Record<string, unknown>;
   for (const key of Object.keys(obj)) {
-    if (!["dream", "memory", "secrets"].includes(key)) {
+    if (!["dream", "memory", "secrets", "mcp"].includes(key)) {
       throw new Error(`Unknown config key: ${key}`);
     }
   }
@@ -51,6 +56,7 @@ export function validateConfigObject(raw: unknown): StoreConfig {
   const allowlist = Array.isArray(secrets.allowlist) ? secrets.allowlist.map(String) : [];
   const memory = (obj.memory ?? { policy: {} }) as StoreConfig["memory"];
   const policy = (dream.policy ?? {}) as StoreConfig["dream"]["policy"];
+  const mcpRaw = (obj.mcp ?? {}) as Record<string, unknown>;
   return {
     dream: {
       enabled: Boolean(dream.enabled ?? false),
@@ -60,6 +66,9 @@ export function validateConfigObject(raw: unknown): StoreConfig {
       policy: (memory.policy ?? {}) as Record<string, unknown>,
     },
     secrets: { allowlist },
+    mcp: {
+      allowCommit: Boolean(mcpRaw.allowCommit ?? false),
+    },
   };
 }
 

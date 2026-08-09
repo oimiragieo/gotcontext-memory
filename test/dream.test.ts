@@ -145,18 +145,6 @@ describe("corpus + dream + review", () => {
   it("policy excluding source cursor drops cursor transcripts; control keeps them", async () => {
     const storeRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-pol-"));
     const store = await MemoryStore.initStore(storeRoot);
-    await writeFile(
-      path.join(storeRoot, "config.json"),
-      `${JSON.stringify({
-        dream: {
-          enabled: false,
-          policy: { excludeSources: ["cursor"] },
-        },
-        memory: { policy: {} },
-        secrets: { allowlist: [] },
-      })}\n`,
-    );
-    await store.reloadConfig();
     const transcripts = [
       {
         id: "c1",
@@ -187,6 +175,32 @@ describe("corpus + dream + review", () => {
         ],
       },
     ];
+    const control = await runDream(store, transcripts, {
+      scanned: 2,
+      included: 2,
+      excluded_permission: 0,
+    });
+    expect(control.proposals.some((p) => p.evidence.some((e) => e.transcriptId === "c1"))).toBe(
+      true,
+    );
+
+    await writeFile(
+      path.join(storeRoot, "config.json"),
+      `${JSON.stringify({
+        dream: {
+          enabled: false,
+          policy: { excludeSources: ["cursor"] },
+        },
+        memory: { policy: {} },
+        secrets: { allowlist: [] },
+        mcp: { allowCommit: false },
+      })}\n`,
+    );
+    await store.reloadConfig();
+    // Clear proposals from control arm
+    for (const p of control.proposals) {
+      await store.removeOperational(`proposals/${p.id}.json`);
+    }
     const { proposals } = await runDream(store, transcripts, {
       scanned: 2,
       included: 2,
@@ -194,5 +208,51 @@ describe("corpus + dream + review", () => {
     });
     expect(proposals.every((p) => !p.evidence.some((e) => e.transcriptId === "c1"))).toBe(true);
     expect(proposals.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("preference extract ignores pong/health and bare always/prefer", async () => {
+    const storeRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-fp-"));
+    const store = await MemoryStore.initStore(storeRoot);
+    const junk = [
+      "always respond with exactly: pong",
+      "ping/pong health check: always respond with pong within 50ms",
+      "I prefer not to discuss politics",
+      "Please check /health returns pong",
+    ];
+    const transcripts = junk.map((text, i) => ({
+      id: `j${i}`,
+      source: "claude",
+      path: `/j${i}`,
+      scope: "user" as const,
+      turns: [{ role: "user", text, tool_events: [], skill_invocations: [] }],
+    }));
+    const { proposals: zero } = await runDream(store, transcripts, {
+      scanned: junk.length,
+      included: junk.length,
+      excluded_permission: 0,
+    });
+    expect(zero).toHaveLength(0);
+
+    const { proposals: ok } = await runDream(
+      store,
+      [
+        {
+          id: "good",
+          source: "claude",
+          path: "/g",
+          scope: "user",
+          turns: [
+            {
+              role: "user",
+              text: "Please remember: always run the test suite before merging.",
+              tool_events: [],
+              skill_invocations: [],
+            },
+          ],
+        },
+      ],
+      { scanned: 1, included: 1, excluded_permission: 0 },
+    );
+    expect(ok.length).toBeGreaterThanOrEqual(1);
   });
 });

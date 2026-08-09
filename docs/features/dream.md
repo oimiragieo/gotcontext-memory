@@ -11,10 +11,11 @@
 ```bash
 gotcontext-memory dream --source claude|codex|cursor|agy|opencode|all \
   --store user|project \
-  --scope user|project
+  --scope user|project \
+  --force   # required when dream.enabled is false (default)
 ```
 
-Prints JSON: `{ proposals, withheldSecrets, dropped, scanned, included, excluded_permission }`.
+Prints JSON including `sources: [{name,label,scanned,included,malformed,errors}]`.
 
 On empty kept corpus: stderr `EMPTY_CORPUS — …` and exit code 1.
 

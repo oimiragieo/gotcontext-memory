@@ -35,7 +35,7 @@ Restores adapter pre-images; clears manifest via MemoryStore.
 ## `dream`
 
 ```bash
-gotcontext-memory dream [--source name] [--scope user|project] [--store …]
+gotcontext-memory dream [--source name] [--scope user|project] [--store …] [--force]
 ```
 
 `--source` default `all`. See [dream.md](../features/dream.md).

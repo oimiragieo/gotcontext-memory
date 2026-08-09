@@ -46,5 +46,18 @@ describe("doctor", () => {
     const mem = report.checks.find((c) => c.name === "memories");
     expect(mem?.status).toBe("pass");
     expect(mem?.detail).toMatch(/1 checked/);
+    const caps = report.checks.find((c) => c.name === "index_caps");
+    expect(caps?.status).toBe("pass");
+  });
+
+  it("over-cap MEMORY.md fails index_caps", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-doc-cap-"));
+    const store = await MemoryStore.initStore(root);
+    const huge = `# Memory index\n\n${Array.from({ length: 210 }, (_, i) => `- [N${i}](memory/n${i}.md) — d`).join("\n")}\n`;
+    await writeFile(path.join(root, "MEMORY.md"), huge, "utf8");
+    const report = await runDoctor(store);
+    expect(report.ok).toBe(false);
+    const caps = report.checks.find((c) => c.name === "index_caps");
+    expect(caps?.status).toBe("fail");
   });
 });
