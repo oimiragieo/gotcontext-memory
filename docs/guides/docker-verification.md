@@ -48,6 +48,7 @@ Dream roots live in `src/corpus/roots.ts` (not under the store).
 | DV-002 | `init --project` retargeted home adapters | `skipHomeAdapters` |
 | DV-003 | Uninstall restored managed markers | Preface-only preImage + strip on uninstall |
 | DV-004 | `dream --source` for non-claude read `$store/fixtures/…` (wrong) | `defaultCorpusRoots()` per harness |
+| DV-005 | `--store project import` from wrong cwd looked at `$WORK/.gotcontext` | Run import with `cwd` = project dir |
 
 ---
 

@@ -200,7 +200,8 @@ if [[ "$HARNESS" == "codex" ]]; then
 fi
 
 log "=== 4. Export / import + uninstall smoke ==="
-cd "$WORK"
+# Export from anywhere with --store user; import must run with cwd=project
+# so --store project resolves to $WORK/project/.gotcontext (DV-005).
 EXPORT_PATH="$WORK/export-$HARNESS.gcm.gz"
 set +e
 EXP_OUT=$(gotcontext-memory --store user export --out "$EXPORT_PATH" 2>&1)
@@ -208,11 +209,13 @@ set -e
 assert_file "$EXPORT_PATH"
 assert_contains "export" "$EXP_OUT" "exported to"
 
+cd "$WORK/project"
 set +e
 IMP_OUT=$(gotcontext-memory --store project import --from "$EXPORT_PATH" --merge 2>&1)
 set -e
 assert_contains "import" "$IMP_OUT" '"imported"'
 
+cd "$WORK"
 set +e
 UN_OUT=$(gotcontext-memory --store user uninstall 2>&1)
 set -e
