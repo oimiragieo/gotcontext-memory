@@ -1,19 +1,15 @@
 import { createHash } from "node:crypto";
+import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { loadConfig } from "../config.js";
 import type { Transcript } from "../corpus/types.js";
 import { parseFrontmatter } from "../frontmatter.js";
-import { scan, SecretDetected } from "../secrets.js";
+import { SecretDetected, scan } from "../secrets.js";
 import type { MemoryStore } from "../store.js";
 import { applyDreamPolicy } from "./policy.js";
 
-export type ProposalAction =
-  | "create"
-  | "update"
-  | "supersede"
-  | "expire"
-  | "delete";
+export type ProposalAction = "create" | "update" | "supersede" | "expire" | "delete";
 
 export type Proposal = {
   id: string;
@@ -26,9 +22,7 @@ export type Proposal = {
   expiresAt?: string;
 };
 
-export function proposalId(
-  p: Omit<Proposal, "id" | "createdAt" | "expiresAt">,
-): string {
+export function proposalId(p: Omit<Proposal, "id" | "createdAt" | "expiresAt">): string {
   const material = JSON.stringify({
     action: p.action,
     targetPath: p.targetPath,
@@ -48,9 +42,7 @@ export function extractProposals(
     for (const turn of t.turns) {
       if (turn.role !== "user" && turn.role !== "human") continue;
       const text = turn.text.trim();
-      const pref = text.match(
-        /(?:please remember|always|prefer|from now on)[:\s]+(.{10,200})/i,
-      );
+      const pref = text.match(/(?:please remember|always|prefer|from now on)[:\s]+(.{10,200})/i);
       if (!pref) continue;
       const body = `---\ntitle: Preference\ndescription: ${pref[1].slice(0, 80)}\n---\n\n${pref[1].trim()}\n`;
       const targetPath = `memory/pref-${createHash("sha256")
@@ -74,13 +66,11 @@ export function extractProposals(
   return out;
 }
 
-async function loadStoreHashes(
-  store: MemoryStore,
-): Promise<Map<string, string>> {
+async function loadStoreHashes(store: MemoryStore): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   const memDir = path.join(store.root, "memory");
   const walk = async (dir: string, prefix: string) => {
-    let ents;
+    let ents: Dirent[];
     try {
       ents = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -146,10 +136,7 @@ export async function runDream(
 ): Promise<{ proposals: Proposal[]; withheldSecrets: number; dropped: number }> {
   const before = await store.memoryTreeHash();
   const cfg = await loadConfig(store.root);
-  const { kept: scoped, dropped: policyDropped } = applyDreamPolicy(
-    transcripts,
-    cfg.dream.policy,
-  );
+  const { kept: scoped, dropped: policyDropped } = applyDreamPolicy(transcripts, cfg.dream.policy);
 
   if (scoped.length === 0) {
     const err = new Error(
@@ -186,7 +173,7 @@ export async function runDream(
       }
       await store.commitOperational({
         relativePath: `proposals/${p.id}.json`,
-        body: JSON.stringify(p, null, 2) + "\n",
+        body: `${JSON.stringify(p, null, 2)}\n`,
       });
       kept.push(p);
     } catch (err) {

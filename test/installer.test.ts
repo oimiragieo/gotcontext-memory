@@ -15,10 +15,7 @@ describe("installer", () => {
     const storeRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-is-"));
     const store = await MemoryStore.initStore(storeRoot);
     const before = await store.memoryTreeHash();
-    const prefaceBefore = await readFile(
-      path.join(home, ".claude", "CLAUDE.md"),
-      "utf8",
-    );
+    const prefaceBefore = await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8");
     const { planned } = await installFragments({
       dryRun: true,
       home,
@@ -28,9 +25,7 @@ describe("installer", () => {
     });
     expect(planned.length).toBeGreaterThan(0);
     expect(await store.memoryTreeHash()).toBe(before);
-    expect(
-      await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8"),
-    ).toBe(prefaceBefore);
+    expect(await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8")).toBe(prefaceBefore);
   });
 
   it("init preserves preface; uninstall restores pre-image bytes", async () => {
@@ -52,14 +47,11 @@ describe("installer", () => {
     });
     await store.commitOperational({
       relativePath: "installer-manifest.json",
-      body: JSON.stringify({ entries: manifest }, null, 2) + "\n",
+      body: `${JSON.stringify({ entries: manifest }, null, 2)}\n`,
       scanSecrets: false,
     });
     expect(await store.memoryTreeHash()).toBe(before);
-    const afterInstall = await readFile(
-      path.join(home, ".claude", "CLAUDE.md"),
-      "utf8",
-    );
+    const afterInstall = await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8");
     expect(afterInstall.startsWith(preface.trim())).toBe(true);
     expect(afterInstall).toContain(MARK_BEGIN);
     // idempotent second install
@@ -72,9 +64,7 @@ describe("installer", () => {
     });
     const restored = await uninstallFragments({ store });
     expect(restored.length).toBeGreaterThan(0);
-    expect(
-      await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8"),
-    ).toBe(preface);
+    expect(await readFile(path.join(home, ".claude", "CLAUDE.md"), "utf8")).toBe(preface);
   });
 
   it("tampered managed block refuses without --force", async () => {
@@ -107,11 +97,7 @@ describe("installer", () => {
   it("fragment parity: shared constraint sentences in all five renders", async () => {
     const { adapters } = await import("../src/adapters/types.js");
     const renders = adapters.map((a) => a.render("/tmp/store"));
-    const must = [
-      "Do not silently rewrite memory",
-      "Writes must go through",
-      "MEMORY.md index",
-    ];
+    const must = ["Do not silently rewrite memory", "Writes must go through", "MEMORY.md index"];
     for (const sentence of must) {
       for (const r of renders) {
         expect(r).toContain(sentence);

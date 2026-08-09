@@ -19,12 +19,7 @@ export type StoreConfig = {
   };
 };
 
-const FORBIDDEN_KEYS = new Set([
-  "dream.schedule",
-  "dream.auto",
-  "schedule",
-  "auto",
-]);
+const FORBIDDEN_KEYS = new Set(["dream.schedule", "dream.auto", "schedule", "auto"]);
 
 export const DEFAULT_CONFIG: StoreConfig = {
   dream: { enabled: false, policy: {} },
@@ -53,9 +48,7 @@ export function validateConfigObject(raw: unknown): StoreConfig {
     throw new Error("Forbidden config key: dream.schedule/auto");
   }
   const secrets = (obj.secrets ?? {}) as Record<string, unknown>;
-  const allowlist = Array.isArray(secrets.allowlist)
-    ? secrets.allowlist.map(String)
-    : [];
+  const allowlist = Array.isArray(secrets.allowlist) ? secrets.allowlist.map(String) : [];
   const memory = (obj.memory ?? { policy: {} }) as StoreConfig["memory"];
   const policy = (dream.policy ?? {}) as StoreConfig["dream"]["policy"];
   return {
@@ -79,5 +72,5 @@ export async function loadConfig(storeRoot: string): Promise<StoreConfig> {
 
 /** Pure: default config bytes for the sole writer (`store.ts`) to persist. */
 export function defaultConfigJson(): string {
-  return JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n";
+  return `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`;
 }

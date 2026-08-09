@@ -3,12 +3,8 @@ import path from "node:path";
 import lockfile from "proper-lockfile";
 import { defaultConfigJson, loadConfig } from "./config.js";
 import { fileExists, memoryTreeHash, sha256Hex } from "./hash.js";
-import {
-  assertSafeRelativePath,
-  resolveUnderStore,
-  resolveUnderStoreSync,
-} from "./paths.js";
-import { scan, SecretDetected } from "./secrets.js";
+import { assertSafeRelativePath, resolveUnderStore, resolveUnderStoreSync } from "./paths.js";
+import { SecretDetected, scan } from "./secrets.js";
 
 export class CasConflict extends Error {
   currentHash: string;
@@ -26,9 +22,7 @@ export class IndexCapExceeded extends Error {
     public lineCap: number,
     public byteCap: number,
   ) {
-    super(
-      `IndexCapExceeded: lines=${lines}/${lineCap} bytes=${bytes}/${byteCap}`,
-    );
+    super(`IndexCapExceeded: lines=${lines}/${lineCap} bytes=${bytes}/${byteCap}`);
     this.name = "IndexCapExceeded";
   }
 }
@@ -113,11 +107,7 @@ export class MemoryStore {
         const abs = await resolveUnderStore(this.root, rel);
         await mkdir(path.dirname(abs), { recursive: true });
         if (!(await fileExists(abs))) {
-          const stub = path.join(
-            this.root,
-            "locks",
-            `${sha256Hex(rel)}.lock`,
-          );
+          const stub = path.join(this.root, "locks", `${sha256Hex(rel)}.lock`);
           await writeFile(stub, "", { flag: "a" });
           const release = await lockfile.lock(stub, {
             retries: { retries: 10, minTimeout: 20, maxTimeout: 200 },
@@ -164,8 +154,7 @@ export class MemoryStore {
     if (rel === "MEMORY.md" || rel.startsWith("memory/")) {
       throw new Error("Use commitCanonical for canonical memory paths");
     }
-    const text =
-      typeof opts.body === "string" ? opts.body : opts.body.toString("utf8");
+    const text = typeof opts.body === "string" ? opts.body : opts.body.toString("utf8");
     if (opts.scanSecrets !== false) {
       const findings = scan(text, this.allowlist);
       if (findings.length) throw new SecretDetected(findings);
@@ -223,11 +212,11 @@ export class MemoryStore {
     return buf ? sha256Hex(buf) : BASE_ABSENT;
   }
 
-  async history(relativePath: string): Promise<
-    Array<{ hash: string; path: string; meta?: Record<string, unknown> }>
-  > {
+  async history(
+    relativePath: string,
+  ): Promise<Array<{ hash: string; path: string; meta?: Record<string, unknown> }>> {
     const revDir = path.join(this.root, "revisions");
-    const prefix = relativePath.replace(/\//g, "__") + ".";
+    const prefix = `${relativePath.replace(/\//g, "__")}.`;
     const { readdir } = await import("node:fs/promises");
     let names: string[] = [];
     try {
@@ -303,7 +292,7 @@ export class LockedStore {
       await writeFile(path.join(revDir, `${stem}.md`), existing);
       await writeFile(
         path.join(revDir, `${stem}.meta.json`),
-        JSON.stringify(
+        `${JSON.stringify(
           {
             path: rel,
             hash: currentHash,
@@ -313,7 +302,7 @@ export class LockedStore {
           },
           null,
           2,
-        ) + "\n",
+        )}\n`,
       );
     }
 
@@ -364,7 +353,7 @@ export class LockedStore {
     await writeFile(path.join(revDir, `${stem}.md`), existing);
     await writeFile(
       path.join(revDir, `${stem}.meta.json`),
-      JSON.stringify(
+      `${JSON.stringify(
         {
           path: rel,
           hash: currentHash,
@@ -374,7 +363,7 @@ export class LockedStore {
         },
         null,
         2,
-      ) + "\n",
+      )}\n`,
     );
     const abs = await resolveUnderStore(this.store.root, rel);
     await rm(abs, { force: true });
@@ -389,12 +378,9 @@ export class LockedStore {
   }
 }
 
-async function appendJournal(
-  root: string,
-  entry: Record<string, unknown>,
-): Promise<void> {
+async function appendJournal(root: string, entry: Record<string, unknown>): Promise<void> {
   const journal = path.join(root, "commits.jsonl");
-  await writeFile(journal, JSON.stringify(entry) + "\n", { flag: "a" });
+  await writeFile(journal, `${JSON.stringify(entry)}\n`, { flag: "a" });
 }
 
 // silence unused sync helper warning if tree-shaken — used by tests optionally

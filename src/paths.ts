@@ -1,6 +1,6 @@
 import { lstat, realpath } from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 export type StoreTier = "user" | "project";
 
@@ -61,10 +61,7 @@ export function assertSafeRelativePath(rel: string): string {
 }
 
 /** Resolve path under store; reject escapes and symlink/junction ancestors. */
-export async function resolveUnderStore(
-  storeRoot: string,
-  rel: string,
-): Promise<string> {
+export async function resolveUnderStore(storeRoot: string, rel: string): Promise<string> {
   const safe = assertSafeRelativePath(rel);
   const rootReal = await realpath(storeRoot).catch(async () => {
     // store may be mid-init

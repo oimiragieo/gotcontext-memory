@@ -13,7 +13,7 @@ export const codexCorpus: CorpusSource = {
     let malformed = 0;
 
     for (const root of opts.roots) {
-      let files: string[] = [];
+      const files: string[] = [];
       try {
         const walk = async (dir: string) => {
           for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -30,11 +30,7 @@ export const codexCorpus: CorpusSource = {
       for (const file of files) {
         scanned += 1;
         const projectKey = path.basename(path.dirname(file));
-        if (
-          opts.scope === "project" &&
-          opts.projectKey &&
-          projectKey !== opts.projectKey
-        ) {
+        if (opts.scope === "project" && opts.projectKey && projectKey !== opts.projectKey) {
           excluded += 1;
           continue;
         }

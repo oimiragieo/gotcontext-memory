@@ -5,12 +5,8 @@ import { describe, expect, it } from "vitest";
 import { claudeCorpus } from "../src/corpus/claude.js";
 import { runDream } from "../src/dream/run.js";
 import { regenerateIndex } from "../src/index.js";
-import {
-  acceptProposal,
-  listProposals,
-  rejectProposal,
-} from "../src/review.js";
-import { IndexCapExceeded, BASE_ABSENT, MemoryStore } from "../src/store.js";
+import { acceptProposal, listProposals, rejectProposal } from "../src/review.js";
+import { BASE_ABSENT, IndexCapExceeded, MemoryStore } from "../src/store.js";
 import { checkIndexCaps } from "../src/store.js";
 
 describe("corpus + dream + review", () => {
@@ -54,7 +50,7 @@ describe("corpus + dream + review", () => {
     });
     expect(await store.memoryTreeHash()).toBe(before);
     expect(proposals.length).toBeGreaterThanOrEqual(1);
-    await rejectProposal(store, proposals[0]!.id, "nope");
+    await rejectProposal(store, proposals[0]?.id, "nope");
     expect(await store.memoryTreeHash()).toBe(before);
     expect(await listProposals(store)).toHaveLength(0);
   });
@@ -85,12 +81,14 @@ describe("corpus + dream + review", () => {
       included: scanned.included,
       excluded_permission: scanned.excluded_permission,
     });
-    const p = proposals[0]!;
+    const p = proposals[0];
+    expect(p).toBeDefined();
+    if (!p) throw new Error("expected at least one proposal");
     await acceptProposal(store, p.id);
     const mem = await store.read(p.targetPath);
     expect(mem).not.toBeNull();
     const index = await store.read("MEMORY.md");
-    expect(index!.toString("utf8")).toContain(p.targetPath);
+    expect(index?.toString("utf8")).toContain(p.targetPath);
     expect(await listProposals(store)).toHaveLength(0);
   });
 
@@ -107,7 +105,7 @@ describe("corpus + dream + review", () => {
     const b = await regenerateIndex(store);
     expect(a).toBe(b);
     expect(a).toContain("memory/a.md");
-    const huge = "# Memory index\n\n" + "x".repeat(30_000);
+    const huge = `# Memory index\n\n${"x".repeat(30_000)}`;
     expect(() => checkIndexCaps(huge)).toThrow(IndexCapExceeded);
   });
 
@@ -115,7 +113,7 @@ describe("corpus + dream + review", () => {
     const storeRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-cap-"));
     const store = await MemoryStore.initStore(storeRoot);
     // Fill index near cap via many memory files would be slow; inject proposal that would blow index
-    const body = "---\ntitle: Big\ndescription: x\n---\n\n" + "y".repeat(100);
+    const body = `---\ntitle: Big\ndescription: x\n---\n\n${"y".repeat(100)}`;
     // Create many tiny memories to push regenerateIndex over line cap
     for (let i = 0; i < 210; i++) {
       await store.commitCanonical({
@@ -140,9 +138,7 @@ describe("corpus + dream + review", () => {
       body: JSON.stringify(proposal, null, 2),
       scanSecrets: false,
     });
-    await expect(acceptProposal(store, "captest")).rejects.toBeInstanceOf(
-      IndexCapExceeded,
-    );
+    await expect(acceptProposal(store, "captest")).rejects.toBeInstanceOf(IndexCapExceeded);
     expect(await store.memoryTreeHash()).toBe(before);
   });
 
@@ -151,14 +147,14 @@ describe("corpus + dream + review", () => {
     const store = await MemoryStore.initStore(storeRoot);
     await writeFile(
       path.join(storeRoot, "config.json"),
-      JSON.stringify({
+      `${JSON.stringify({
         dream: {
           enabled: false,
           policy: { excludeSources: ["cursor"] },
         },
         memory: { policy: {} },
         secrets: { allowlist: [] },
-      }) + "\n",
+      })}\n`,
     );
     await store.reloadConfig();
     const transcripts = [
@@ -196,9 +192,7 @@ describe("corpus + dream + review", () => {
       included: 2,
       excluded_permission: 0,
     });
-    expect(
-      proposals.every((p) => !p.evidence.some((e) => e.transcriptId === "c1")),
-    ).toBe(true);
+    expect(proposals.every((p) => !p.evidence.some((e) => e.transcriptId === "c1"))).toBe(true);
     expect(proposals.length).toBeGreaterThanOrEqual(1);
   });
 });

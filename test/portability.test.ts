@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { exportStore, importStore } from "../src/portability.js";
-import { BASE_ABSENT, MemoryStore } from "../src/store.js";
 import { SecretDetected } from "../src/secrets.js";
+import { BASE_ABSENT, MemoryStore } from "../src/store.js";
 
 describe("portability", () => {
   it("export → wipe memory → import merge yields same content hash", async () => {
@@ -26,7 +26,7 @@ describe("portability", () => {
     await importStore(store2, archive, "merge");
     expect(await store2.read("memory/a.md")).not.toBeNull();
     // tree hash may differ if index regenerated — content must match
-    const body = (await store2.read("memory/a.md"))!.toString("utf8");
+    const body = (await store2.read("memory/a.md"))?.toString("utf8");
     expect(body).toContain("hello");
     void h1;
   });
@@ -36,7 +36,7 @@ describe("portability", () => {
     const store = await MemoryStore.initStore(root);
     const before = await store.memoryTreeHash();
     const archive = path.join(os.tmpdir(), `gcm-bad-${Date.now()}.gcm.gz`);
-    // Build a tiny gzip JSONL archive manually via export of secret body through operational bypass then… 
+    // Build a tiny gzip JSONL archive manually via export of secret body through operational bypass then…
     // Instead: export clean, then craft by importing through commit path with secret in a synthetic store export.
     const dirtyRoot = await mkdtemp(path.join(os.tmpdir(), "gcm-dirty-"));
     const dirty = await MemoryStore.initStore(dirtyRoot);
@@ -44,10 +44,7 @@ describe("portability", () => {
     // Use commitOperational is wrong for memory/. Use writeFile under memory then export.
     const { writeFile, mkdir } = await import("node:fs/promises");
     await mkdir(path.join(dirtyRoot, "memory"), { recursive: true });
-    await writeFile(
-      path.join(dirtyRoot, "memory", "leak.md"),
-      "AKIAIOSFODNN7EXAMPLE\n",
-    );
+    await writeFile(path.join(dirtyRoot, "memory", "leak.md"), "AKIAIOSFODNN7EXAMPLE\n");
     await exportStore(dirty, archive);
     const r = await importStore(store, archive, "merge");
     expect(r.rejected).toBeGreaterThanOrEqual(1);
@@ -59,8 +56,6 @@ describe("portability", () => {
   it("import refuses non-absolute archive path", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "gcm-port3-"));
     const store = await MemoryStore.initStore(root);
-    await expect(importStore(store, "rel.gcm.gz", "merge")).rejects.toThrow(
-      /absolute/,
-    );
+    await expect(importStore(store, "rel.gcm.gz", "merge")).rejects.toThrow(/absolute/);
   });
 });

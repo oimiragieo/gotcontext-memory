@@ -1,12 +1,12 @@
 import fs from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { exportStore } from "../src/portability.js";
 import { MemoryStore } from "../src/store.js";
-import { mkdtemp } from "node:fs/promises";
-import os from "node:os";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = path.join(ROOT, "src");
@@ -49,9 +49,7 @@ function collectWriteCalls(filePath: string): string[] {
 
 describe("repo guards", () => {
   it("package.json has no omega/telegram/pipecat deps", () => {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(ROOT, "package.json"), "utf8"),
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
     const names = [
       ...Object.keys(pkg.dependencies ?? {}),
       ...Object.keys(pkg.optionalDependencies ?? {}),
@@ -102,20 +100,16 @@ describe("repo guards", () => {
     const { acceptProposal, rejectProposal } = await import("../src/review.js");
     const root = await mkdtemp(path.join(os.tmpdir(), "gcm-rev-"));
     const store = await MemoryStore.initStore(root);
-    await expect(acceptProposal(store, "../escape")).rejects.toThrow(
-      /invalid proposal id/,
-    );
-    await expect(rejectProposal(store, "a/b", "x")).rejects.toThrow(
-      /invalid proposal id/,
-    );
+    await expect(acceptProposal(store, "../escape")).rejects.toThrow(/invalid proposal id/);
+    await expect(rejectProposal(store, "a/b", "x")).rejects.toThrow(/invalid proposal id/);
   });
 
   it("portability refuses archive inside store root", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "gcm-exp-"));
     const store = await MemoryStore.initStore(root);
-    await expect(
-      exportStore(store, path.join(root, "out.gcm.gz")),
-    ).rejects.toThrow(/must not target the store root/);
+    await expect(exportStore(store, path.join(root, "out.gcm.gz"))).rejects.toThrow(
+      /must not target the store root/,
+    );
   });
 
   it("installer refuses fragment path under store root", async () => {

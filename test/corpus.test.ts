@@ -9,10 +9,7 @@ import { codexCorpus } from "../src/corpus/codex.js";
 import { cursorCorpus } from "../src/corpus/cursor.js";
 import { opencodeCorpus } from "../src/corpus/opencode.js";
 
-const FIX = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "fixtures/transcripts",
-);
+const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/transcripts");
 
 describe("corpus importers", () => {
   it("claude: empty dir → EMPTY label", async () => {
@@ -32,9 +29,7 @@ describe("corpus importers", () => {
     expect(r.malformed).toBeGreaterThanOrEqual(1);
     expect(r.transcripts).toHaveLength(2);
     const withSkill = r.transcripts.find((t) => t.id === "s1");
-    expect(withSkill?.turns.some((t) => t.skill_invocations?.length)).toBe(
-      true,
-    );
+    expect(withSkill?.turns.some((t) => t.skill_invocations?.length)).toBe(true);
   });
 
   it("claude CE-8 scope: projectKey filters", async () => {
@@ -54,7 +49,7 @@ describe("corpus importers", () => {
     });
     expect(r.included).toBe(2);
     expect(r.label).toBe("OK");
-    expect(r.transcripts[0]!.source).toBe("codex");
+    expect(r.transcripts[0]?.source).toBe("codex");
   });
 
   it("cursor: jsonl + vscdb sqlite fixture", async () => {
@@ -65,7 +60,7 @@ describe("corpus importers", () => {
     expect(r.included).toBeGreaterThanOrEqual(2);
     const sqlite = r.transcripts.find((t) => t.path.endsWith(".vscdb"));
     expect(sqlite).toBeTruthy();
-    expect(sqlite!.turns.length).toBeGreaterThanOrEqual(1);
+    expect(sqlite?.turns.length).toBeGreaterThanOrEqual(1);
   });
 
   it("agy/opencode stubs: PARTIAL label + candidate enumeration", async () => {

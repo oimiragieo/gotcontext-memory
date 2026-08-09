@@ -1,8 +1,8 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { loadConfig } from "./config.js";
-import { fileExists } from "./hash.js";
 import { parseFrontmatter } from "./frontmatter.js";
+import { fileExists } from "./hash.js";
 import { scan } from "./secrets.js";
 import type { MemoryStore } from "./store.js";
 import { BYTE_CAP, LINE_CAP } from "./store.js";
@@ -66,9 +66,7 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
       name: "memories",
       status: memCount === 0 ? "EMPTY" : "pass",
       detail:
-        memCount === 0
-          ? "memories: 0 — EMPTY, proves nothing"
-          : `memories: ${memCount} checked`,
+        memCount === 0 ? "memories: 0 — EMPTY, proves nothing" : `memories: ${memCount} checked`,
     });
   } catch (err) {
     ok = false;
@@ -88,8 +86,8 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
     const lines = text.split(/\r?\n/);
     for (const line of lines) {
       const m = line.match(/\((memory\/[^)]+)\)/);
-      if (!m) continue;
-      const target = m[1]!;
+      const target = m?.[1];
+      if (!target) continue;
       if (!(await store.read(target))) {
         ok = false;
         checks.push({

@@ -17,10 +17,7 @@ export function parseFrontmatter(raw: string): {
   return { frontmatter: parsed, body };
 }
 
-export function serializeFrontmatter(
-  frontmatter: Frontmatter,
-  body: string,
-): string {
+export function serializeFrontmatter(frontmatter: Frontmatter, body: string): string {
   const yaml = YAML.stringify(frontmatter).trimEnd();
   return `---\n${yaml}\n---\n${body.startsWith("\n") ? body : `\n${body}`}`;
 }

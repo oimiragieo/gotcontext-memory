@@ -5,11 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { memoryTreeHash, sha256Hex } from "../src/hash.js";
-import {
-  BASE_ABSENT,
-  CasConflict,
-  MemoryStore,
-} from "../src/store.js";
+import { BASE_ABSENT, CasConflict, MemoryStore } from "../src/store.js";
 
 describe("MemoryStore.commitCanonical CAS", () => {
   it("commitCanonical with stale baseHash throws CasConflict and leaves file bytes unchanged", async () => {
@@ -101,19 +97,19 @@ describe("MemoryStore.commitCanonical CAS", () => {
       provenance: { authored_by: "system" },
     });
     const baseHash = sha256Hex("base\n");
-    const worker = fileURLToPath(
-      new URL("./helpers/cas-worker.ts", import.meta.url),
-    );
+    const worker = fileURLToPath(new URL("./helpers/cas-worker.ts", import.meta.url));
     const run = (body: string) =>
       new Promise<{ code: number | null; out: string }>((resolve) => {
-        const child = spawn(
-          process.execPath,
-          ["--import", "tsx", worker, root, baseHash, body],
-          { stdio: ["ignore", "pipe", "pipe"] },
-        );
+        const child = spawn(process.execPath, ["--import", "tsx", worker, root, baseHash, body], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
         let out = "";
-        child.stdout.on("data", (d) => (out += d));
-        child.stderr.on("data", (d) => (out += d));
+        child.stdout.on("data", (d) => {
+          out += d;
+        });
+        child.stderr.on("data", (d) => {
+          out += d;
+        });
         child.on("close", (code) => resolve({ code, out }));
       });
     const [a, b] = await Promise.all([run("A\n"), run("B\n")]);

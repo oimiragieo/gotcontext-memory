@@ -1,12 +1,6 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import type {
-  CorpusSource,
-  ScanOpts,
-  ScanResult,
-  Transcript,
-  TranscriptTurn,
-} from "./types.js";
+import type { CorpusSource, ScanOpts, ScanResult, Transcript, TranscriptTurn } from "./types.js";
 
 /** Fixture-pinned Claude Code JSONL: one JSON object per line with type/message fields. */
 export const claudeCorpus: CorpusSource = {
@@ -32,11 +26,7 @@ export const claudeCorpus: CorpusSource = {
       for (const file of files) {
         scanned += 1;
         const projectKey = path.basename(path.dirname(file));
-        if (
-          opts.scope === "project" &&
-          opts.projectKey &&
-          projectKey !== opts.projectKey
-        ) {
+        if (opts.scope === "project" && opts.projectKey && projectKey !== opts.projectKey) {
           excluded += 1;
           continue;
         }
@@ -59,8 +49,7 @@ export const claudeCorpus: CorpusSource = {
     }
 
     const included = transcripts.length;
-    const label =
-      scanned === 0 ? "EMPTY" : ("OK" as const);
+    const label = scanned === 0 ? "EMPTY" : ("OK" as const);
     return {
       transcripts,
       scanned,

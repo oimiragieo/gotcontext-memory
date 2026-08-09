@@ -1,4 +1,4 @@
-import { MemoryStore, CasConflict } from "../../src/store.js";
+import { CasConflict, MemoryStore } from "../../src/store.js";
 
 const [root, baseHash, body] = process.argv.slice(2);
 const store = new MemoryStore(root);

@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { BASE_ABSENT, MemoryStore } from "../store.js";
+import { BASE_ABSENT, type MemoryStore } from "../store.js";
 
 export type McpResult =
   | { ok: true; result: unknown }
@@ -57,7 +57,7 @@ export async function handleToolCall(
         ok: false,
         error: {
           code: -32000,
-          message: (err as Error).name + ": " + (err as Error).message,
+          message: `${(err as Error).name}: ${(err as Error).message}`,
         },
       };
     }
@@ -67,20 +67,19 @@ export async function handleToolCall(
       const id = `mcp-${Date.now()}`;
       await store.commitOperational({
         relativePath: `proposals/${id}.json`,
-        body:
-          JSON.stringify(
-            {
-              id,
-              action: "create",
-              targetPath: args.path,
-              base_hash: args.baseHash || BASE_ABSENT,
-              body: args.body,
-              evidence: [{ transcriptId: "mcp", quote: args.body?.slice(0, 80) }],
-              createdAt: new Date().toISOString(),
-            },
-            null,
-            2,
-          ) + "\n",
+        body: `${JSON.stringify(
+          {
+            id,
+            action: "create",
+            targetPath: args.path,
+            base_hash: args.baseHash || BASE_ABSENT,
+            body: args.body,
+            evidence: [{ transcriptId: "mcp", quote: args.body?.slice(0, 80) }],
+            createdAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        )}\n`,
       });
       return {
         ok: true,

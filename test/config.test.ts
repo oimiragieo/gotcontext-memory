@@ -8,12 +8,12 @@ import { resolveStoreRoot } from "../src/paths.js";
 describe("config + store tiers", () => {
   it("rejects unknown and schedule/auto keys by name", () => {
     expect(() => validateConfigObject({ foo: 1 })).toThrow(/Unknown config key: foo/);
-    expect(() =>
-      validateConfigObject({ dream: { enabled: false, schedule: "1h" } }),
-    ).toThrow(/Forbidden/);
-    expect(() =>
-      validateConfigObject({ dream: { enabled: false, auto: true } }),
-    ).toThrow(/Forbidden/);
+    expect(() => validateConfigObject({ dream: { enabled: false, schedule: "1h" } })).toThrow(
+      /Forbidden/,
+    );
+    expect(() => validateConfigObject({ dream: { enabled: false, auto: true } })).toThrow(
+      /Forbidden/,
+    );
   });
 
   it("default dream.enabled is false (never unprompted)", () => {
@@ -21,15 +21,15 @@ describe("config + store tiers", () => {
   });
 
   it("ambiguous store refuses with valid options", () => {
-    expect(() =>
-      resolveStoreRoot({ projectExists: true }),
-    ).toThrow(/Ambiguous store.*--store user \| --store project/);
+    expect(() => resolveStoreRoot({ projectExists: true })).toThrow(
+      /Ambiguous store.*--store user \| --store project/,
+    );
   });
 
   it("project tier missing refuses with valid options", () => {
-    expect(() =>
-      resolveStoreRoot({ tier: "project", projectExists: false }),
-    ).toThrow(/Project store not present/);
+    expect(() => resolveStoreRoot({ tier: "project", projectExists: false })).toThrow(
+      /Project store not present/,
+    );
   });
 
   it("user tier resolves under home", async () => {

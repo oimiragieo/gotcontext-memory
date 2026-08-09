@@ -41,11 +41,7 @@ export const cursorCorpus: CorpusSource = {
       for (const file of files) {
         scanned += 1;
         const projectKey = path.basename(path.dirname(file));
-        if (
-          opts.scope === "project" &&
-          opts.projectKey &&
-          projectKey !== opts.projectKey
-        ) {
+        if (opts.scope === "project" && opts.projectKey && projectKey !== opts.projectKey) {
           excluded += 1;
           continue;
         }
@@ -74,10 +70,7 @@ export const cursorCorpus: CorpusSource = {
               const content = obj.message.content;
               turns.push({
                 role: String(obj.message.role ?? "user"),
-                text:
-                  typeof content === "string"
-                    ? content
-                    : JSON.stringify(content ?? ""),
+                text: typeof content === "string" ? content : JSON.stringify(content ?? ""),
                 tool_events: [],
                 skill_invocations: [],
               });
@@ -134,9 +127,7 @@ async function readVscdbTurns(dbPath: string) {
     }> = [];
     for (const row of rows) {
       const raw =
-        typeof row.value === "string"
-          ? row.value
-          : Buffer.from(row.value).toString("utf8");
+        typeof row.value === "string" ? row.value : Buffer.from(row.value).toString("utf8");
       try {
         const parsed = JSON.parse(raw) as {
           bubbles?: Array<{ type?: string; text?: string; role?: string }>;

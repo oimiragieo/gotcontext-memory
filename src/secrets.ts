@@ -16,10 +16,7 @@ const PATTERNS: Array<{ name: string; re: RegExp }> = [
   },
 ];
 
-export function scan(
-  text: string,
-  allowlist: string[] = [],
-): SecretFinding[] {
+export function scan(text: string, allowlist: string[] = []): SecretFinding[] {
   const allowed = new Set(allowlist);
   const findings: SecretFinding[] = [];
   for (const { name, re } of PATTERNS) {
@@ -27,7 +24,7 @@ export function scan(
     re.lastIndex = 0;
     const m = text.match(re);
     if (m) {
-      findings.push({ pattern: name, preview: m[0].slice(0, 12) + "…" });
+      findings.push({ pattern: name, preview: `${m[0].slice(0, 12)}…` });
     }
   }
   return findings;
@@ -36,9 +33,7 @@ export function scan(
 export class SecretDetected extends Error {
   findings: SecretFinding[];
   constructor(findings: SecretFinding[]) {
-    super(
-      `SecretDetected: ${findings.map((f) => f.pattern).join(", ")}`,
-    );
+    super(`SecretDetected: ${findings.map((f) => f.pattern).join(", ")}`);
     this.name = "SecretDetected";
     this.findings = findings;
   }

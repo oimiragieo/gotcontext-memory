@@ -1,15 +1,11 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import type { Proposal } from "./dream/run.js";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.js";
 import { regenerateIndex } from "./index.js";
-import type { Proposal } from "./dream/run.js";
 import { assertSafeRelativePath } from "./paths.js";
-import { scan, SecretDetected } from "./secrets.js";
-import {
-  BASE_ABSENT,
-  checkIndexCaps,
-  MemoryStore,
-} from "./store.js";
+import { SecretDetected, scan } from "./secrets.js";
+import { BASE_ABSENT, type MemoryStore, checkIndexCaps } from "./store.js";
 
 /** Proposal ids are single path segments under proposals/ — never traversal. */
 export function assertProposalId(id: string): string {
@@ -55,7 +51,7 @@ export async function rejectProposal(
   const raw = await readProposal(store, id);
   await store.commitOperational({
     relativePath: `proposals/rejected/${id}.json`,
-    body: JSON.stringify({ ...JSON.parse(raw), reason }, null, 2) + "\n",
+    body: `${JSON.stringify({ ...JSON.parse(raw), reason }, null, 2)}\n`,
     scanSecrets: false,
   });
   await store.removeOperational(`proposals/${id}.json`);
@@ -109,126 +105,115 @@ export async function acceptProposal(
   });
 
   // Preflight: secrets + caps before any canonical mutation
-  const targetBody =
-    expireBody ??
-    overlayUpserts[proposal.targetPath] ??
-    proposal.body;
+  const targetBody = expireBody ?? overlayUpserts[proposal.targetPath] ?? proposal.body;
   if (proposal.action !== "delete") {
     const findings = scan(targetBody, store.getSecretAllowlist());
     if (findings.length) throw new SecretDetected(findings);
   }
-  try {
-    checkIndexCaps(indexBytes);
-  } catch (err) {
-    throw err;
-  }
+  checkIndexCaps(indexBytes);
   const indexFindings = scan(indexBytes, store.getSecretAllowlist());
   if (indexFindings.length) throw new SecretDetected(indexFindings);
 
   try {
-    await store.withCanonicalLocks(
-      [proposal.targetPath, "MEMORY.md"],
-      async (locked) => {
-        const targetBefore = await store.read(proposal.targetPath);
-        const targetBeforeHash = targetBefore
-          ? (await import("./hash.js")).sha256Hex(targetBefore)
-          : BASE_ABSENT;
+    await store.withCanonicalLocks([proposal.targetPath, "MEMORY.md"], async (locked) => {
+      const targetBefore = await store.read(proposal.targetPath);
+      const targetBeforeHash = targetBefore
+        ? (await import("./hash.js")).sha256Hex(targetBefore)
+        : BASE_ABSENT;
 
+      if (proposal.action === "delete") {
+        const base = proposal.base_hash === "absent" ? BASE_ABSENT : proposal.base_hash;
+        await locked.deleteCanonicalLocked({
+          relativePath: proposal.targetPath,
+          baseHash: base,
+          provenance: { authored_by: "dream", proposal_id: id },
+        });
+      } else if (proposal.action === "expire") {
+        if (expireBody === null) {
+          throw new Error(`expire body missing for proposal ${id}`);
+        }
+        await locked.commitCanonicalLocked({
+          relativePath: proposal.targetPath,
+          body: expireBody,
+          baseHash: proposal.base_hash,
+          provenance: {
+            authored_by: "dream",
+            proposal_id: id,
+            source: "expire",
+          },
+        });
+      } else {
+        await locked.commitCanonicalLocked({
+          relativePath: proposal.targetPath,
+          body: proposal.body,
+          baseHash: proposal.base_hash,
+          provenance: { authored_by: "dream", proposal_id: id },
+        });
+      }
+      try {
+        const indexHash = await store.currentHash("MEMORY.md");
+        await locked.commitCanonicalLocked({
+          relativePath: "MEMORY.md",
+          body: indexBytes,
+          baseHash: indexHash,
+          provenance: { authored_by: "system", proposal_id: id },
+        });
+      } catch (indexErr) {
+        // Roll back target so accept never leaves half-applied canonical state.
+        const { sha256Hex } = await import("./hash.js");
         if (proposal.action === "delete") {
-          const base =
-            proposal.base_hash === "absent"
-              ? BASE_ABSENT
-              : proposal.base_hash;
-          await locked.deleteCanonicalLocked({
-            relativePath: proposal.targetPath,
-            baseHash: base,
-            provenance: { authored_by: "dream", proposal_id: id },
-          });
-        } else if (proposal.action === "expire") {
-          await locked.commitCanonicalLocked({
-            relativePath: proposal.targetPath,
-            body: expireBody!,
-            baseHash: proposal.base_hash,
-            provenance: {
-              authored_by: "dream",
-              proposal_id: id,
-              source: "expire",
-            },
-          });
-        } else {
-          await locked.commitCanonicalLocked({
-            relativePath: proposal.targetPath,
-            body: proposal.body,
-            baseHash: proposal.base_hash,
-            provenance: { authored_by: "dream", proposal_id: id },
-          });
-        }
-        try {
-          const indexHash = await store.currentHash("MEMORY.md");
-          await locked.commitCanonicalLocked({
-            relativePath: "MEMORY.md",
-            body: indexBytes,
-            baseHash: indexHash,
-            provenance: { authored_by: "system", proposal_id: id },
-          });
-        } catch (indexErr) {
-          // Roll back target so accept never leaves half-applied canonical state.
-          const { sha256Hex } = await import("./hash.js");
-          if (proposal.action === "delete") {
-            if (targetBefore) {
-              await locked.commitCanonicalLocked({
-                relativePath: proposal.targetPath,
-                body: targetBefore.toString("utf8"),
-                baseHash: BASE_ABSENT,
-                provenance: {
-                  authored_by: "system",
-                  proposal_id: id,
-                  source: "accept-rollback",
-                },
-              });
-            }
-          } else {
-            const cur = await store.currentHash(proposal.targetPath);
-            if (targetBefore) {
-              await locked.commitCanonicalLocked({
-                relativePath: proposal.targetPath,
-                body: targetBefore.toString("utf8"),
-                baseHash: cur,
-                provenance: {
-                  authored_by: "system",
-                  proposal_id: id,
-                  source: "accept-rollback",
-                },
-              });
-            } else {
-              await locked.deleteCanonicalLocked({
-                relativePath: proposal.targetPath,
-                baseHash: cur,
-                provenance: {
-                  authored_by: "system",
-                  proposal_id: id,
-                  source: "accept-rollback",
-                },
-              });
-            }
+          if (targetBefore) {
+            await locked.commitCanonicalLocked({
+              relativePath: proposal.targetPath,
+              body: targetBefore.toString("utf8"),
+              baseHash: BASE_ABSENT,
+              provenance: {
+                authored_by: "system",
+                proposal_id: id,
+                source: "accept-rollback",
+              },
+            });
           }
-          void targetBeforeHash;
-          void sha256Hex;
-          throw indexErr;
+        } else {
+          const cur = await store.currentHash(proposal.targetPath);
+          if (targetBefore) {
+            await locked.commitCanonicalLocked({
+              relativePath: proposal.targetPath,
+              body: targetBefore.toString("utf8"),
+              baseHash: cur,
+              provenance: {
+                authored_by: "system",
+                proposal_id: id,
+                source: "accept-rollback",
+              },
+            });
+          } else {
+            await locked.deleteCanonicalLocked({
+              relativePath: proposal.targetPath,
+              baseHash: cur,
+              provenance: {
+                authored_by: "system",
+                proposal_id: id,
+                source: "accept-rollback",
+              },
+            });
+          }
         }
-      },
-    );
+        void targetBeforeHash;
+        void sha256Hex;
+        throw indexErr;
+      }
+    });
   } catch (err) {
     await store.commitOperational({
       relativePath: `receipts/${id}.error.json`,
-      body:
-        JSON.stringify({
-          id,
-          status: "error",
-          code: "INDEX_DRIFT_OR_CAS",
-          message: (err as Error).message,
-          at: new Date().toISOString(),
-        }) + "\n",
+      body: `${JSON.stringify({
+        id,
+        status: "error",
+        code: "INDEX_DRIFT_OR_CAS",
+        message: (err as Error).message,
+        at: new Date().toISOString(),
+      })}\n`,
       scanSecrets: false,
     });
     throw err;
@@ -242,12 +227,11 @@ export async function acceptProposal(
   await store.removeOperational(`proposals/${id}.json`);
   await store.commitOperational({
     relativePath: `receipts/${id}.json`,
-    body:
-      JSON.stringify({
-        id,
-        status: "accepted",
-        at: new Date().toISOString(),
-      }) + "\n",
+    body: `${JSON.stringify({
+      id,
+      status: "accepted",
+      at: new Date().toISOString(),
+    })}\n`,
     scanSecrets: false,
   });
 }

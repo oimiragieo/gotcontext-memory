@@ -1,6 +1,6 @@
-import { Command } from "commander";
 import os from "node:os";
 import path from "node:path";
+import { Command } from "commander";
 import { agyCorpus } from "./corpus/agy.js";
 import { claudeCorpus } from "./corpus/claude.js";
 import { codexCorpus } from "./corpus/codex.js";
@@ -21,9 +21,7 @@ async function openStore(storeFlag?: string, cwd = process.cwd()) {
   const user = userStoreRoot();
   if (storeFlag === "project") {
     if (!(await fileExists(project))) {
-      throw new Error(
-        "Project store missing. Run: gotcontext-memory init --project",
-      );
+      throw new Error("Project store missing. Run: gotcontext-memory init --project");
     }
     const s = new MemoryStore(project);
     await s.reloadConfig();
@@ -46,9 +44,7 @@ export function buildCli(): Command {
   const program = new Command();
   program
     .name("gotcontext-memory")
-    .description(
-      "Disk-canonical markdown memory + HITL dreaming for multiple coding agents",
-    )
+    .description("Disk-canonical markdown memory + HITL dreaming for multiple coding agents")
     .option("--store <tier>", "user|project");
 
   program
@@ -58,9 +54,7 @@ export function buildCli(): Command {
     .option("--force", "overwrite tampered managed blocks")
     .option("--mcp", "note MCP enablement (use `mcp` command to serve)")
     .action(async (opts) => {
-      const root = opts.project
-        ? projectStoreRoot(process.cwd())
-        : userStoreRoot();
+      const root = opts.project ? projectStoreRoot(process.cwd()) : userStoreRoot();
       if (opts.dryRun) {
         console.log(`Would init store at ${root}`);
         const { planned } = await installFragments({
@@ -83,7 +77,7 @@ export function buildCli(): Command {
       });
       await store.commitOperational({
         relativePath: "installer-manifest.json",
-        body: JSON.stringify({ entries: manifest }, null, 2) + "\n",
+        body: `${JSON.stringify({ entries: manifest }, null, 2)}\n`,
         scanSecrets: false,
       });
       const after = await store.memoryTreeHash();
@@ -139,8 +133,7 @@ export function buildCli(): Command {
         const result = await src.scan({
           scope,
           roots,
-          projectKey:
-            scope === "project" ? path.basename(process.cwd()) : undefined,
+          projectKey: scope === "project" ? path.basename(process.cwd()) : undefined,
         });
         scanned += result.scanned;
         included += result.included;
@@ -148,15 +141,11 @@ export function buildCli(): Command {
         transcripts.push(...result.transcripts);
       }
       try {
-        const { proposals, withheldSecrets, dropped } = await runDream(
-          store,
-          transcripts,
-          {
-            scanned,
-            included,
-            excluded_permission: excluded,
-          },
-        );
+        const { proposals, withheldSecrets, dropped } = await runDream(store, transcripts, {
+          scanned,
+          included,
+          excluded_permission: excluded,
+        });
         console.log(
           JSON.stringify(
             {

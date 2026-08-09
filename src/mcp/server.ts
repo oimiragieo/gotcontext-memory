@@ -22,15 +22,9 @@ export async function runMcpServer(storeRoot: string): Promise<void> {
     terminal: false,
   });
 
-  const reply = (
-    id: number | string | null,
-    result?: unknown,
-    error?: unknown,
-  ) => {
-    const msg = error
-      ? { jsonrpc: "2.0", id, error }
-      : { jsonrpc: "2.0", id, result };
-    process.stdout.write(JSON.stringify(msg) + "\n");
+  const reply = (id: number | string | null, result?: unknown, error?: unknown) => {
+    const msg = error ? { jsonrpc: "2.0", id, error } : { jsonrpc: "2.0", id, result };
+    process.stdout.write(`${JSON.stringify(msg)}\n`);
   };
 
   for await (const line of rl) {

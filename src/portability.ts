@@ -1,4 +1,5 @@
 import { createWriteStream } from "node:fs";
+import type { Dirent } from "node:fs";
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -6,12 +7,9 @@ import { pipeline } from "node:stream/promises";
 import { createGzip, gunzipSync } from "node:zlib";
 import { regenerateIndex } from "./index.js";
 import { assertSafeRelativePath } from "./paths.js";
-import { MemoryStore } from "./store.js";
+import type { MemoryStore } from "./store.js";
 
-export async function exportStore(
-  store: MemoryStore,
-  destArchive: string,
-): Promise<void> {
+export async function exportStore(store: MemoryStore, destArchive: string): Promise<void> {
   if (!path.isAbsolute(destArchive)) {
     throw new Error("export destination must be an absolute path outside the store");
   }
@@ -22,7 +20,7 @@ export async function exportStore(
 
   const files: Array<{ path: string; contentBase64: string }> = [];
   const walk = async (dir: string, prefix: string) => {
-    let ents;
+    let ents: Dirent[];
     try {
       ents = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -47,7 +45,7 @@ export async function exportStore(
   }
 
   await mkdir(path.dirname(destArchive), { recursive: true });
-  const payload = files.map((f) => JSON.stringify(f)).join("\n") + "\n";
+  const payload = `${files.map((f) => JSON.stringify(f)).join("\n")}\n`;
   await pipeline(Readable.from([payload]), createGzip(), createWriteStream(destArchive));
 }
 
@@ -78,7 +76,7 @@ export async function importStore(
     // Remove canonical memory files absent from the archive (real replace semantics).
     const memDir = path.join(store.root, "memory");
     const walkDel = async (dir: string, prefix: string) => {
-      let ents;
+      let ents: Dirent[];
       try {
         ents = await readdir(dir, { withFileTypes: true });
       } catch {
@@ -138,7 +136,7 @@ export async function importStore(
         await store.commitOperational({
           relativePath: row.path,
           body: bodyBuf,
-          scanSecrets: row.path.startsWith("proposals/") ? true : false,
+          scanSecrets: !!row.path.startsWith("proposals/"),
         });
         imported += 1;
       } catch {
@@ -164,14 +162,13 @@ export async function importStore(
 
   await store.commitOperational({
     relativePath: `receipts/import-${Date.now()}.json`,
-    body:
-      JSON.stringify({
-        mode,
-        imported,
-        rejected,
-        skipped,
-        at: new Date().toISOString(),
-      }) + "\n",
+    body: `${JSON.stringify({
+      mode,
+      imported,
+      rejected,
+      skipped,
+      at: new Date().toISOString(),
+    })}\n`,
     scanSecrets: false,
   });
   return { imported, rejected, skipped };

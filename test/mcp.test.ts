@@ -2,8 +2,8 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { handleToolCall } from "../src/mcp/handlers.js";
 import { sha256Hex } from "../src/hash.js";
+import { handleToolCall } from "../src/mcp/handlers.js";
 import { BASE_ABSENT, MemoryStore } from "../src/store.js";
 
 describe("mcp handlers", () => {

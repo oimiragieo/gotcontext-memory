@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { parseFrontmatter } from "./frontmatter.js";
 import type { MemoryStore } from "./store.js";
@@ -33,30 +33,24 @@ export async function regenerateIndex(
   const sorted = [...files.keys()].sort();
   for (const rel of sorted) {
     if (!rel.startsWith("memory/") || !rel.endsWith(".md")) continue;
-    const raw = files.get(rel)!;
+    const raw = files.get(rel);
+    if (raw === undefined) continue;
     const { frontmatter, body } = parseFrontmatter(raw);
     if (typeof frontmatter.expires === "string") {
       const exp = Date.parse(frontmatter.expires);
       if (!Number.isNaN(exp) && exp <= now) continue;
     }
     const title =
-      (typeof frontmatter.title === "string" && frontmatter.title) ||
-      path.basename(rel, ".md");
+      (typeof frontmatter.title === "string" && frontmatter.title) || path.basename(rel, ".md");
     const hook =
-      (typeof frontmatter.description === "string" &&
-        frontmatter.description) ||
-      firstLine(body);
+      (typeof frontmatter.description === "string" && frontmatter.description) || firstLine(body);
     lines.push(`- [${title}](${rel}) — ${hook}`);
   }
   lines.push("");
   return lines.join("\n");
 }
 
-async function walk(
-  dir: string,
-  root: string,
-  out: Map<string, string>,
-): Promise<void> {
+async function walk(dir: string, root: string, out: Map<string, string>): Promise<void> {
   const items = await readdir(dir, { withFileTypes: true });
   for (const item of items) {
     const abs = path.join(dir, item.name);

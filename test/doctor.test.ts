@@ -29,9 +29,7 @@ describe("doctor", () => {
     const report = await runDoctor(store);
     expect(report.ok).toBe(false);
     expect(
-      report.checks.some(
-        (c) => c.name === "dangling_index" && c.detail === "memory/missing.md",
-      ),
+      report.checks.some((c) => c.name === "dangling_index" && c.detail === "memory/missing.md"),
     ).toBe(true);
   });
 

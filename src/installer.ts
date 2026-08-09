@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { adapters, MARK_BEGIN, MARK_END } from "./adapters/types.js";
+import { MARK_BEGIN, MARK_END, adapters } from "./adapters/types.js";
 import { loadConfig } from "./config.js";
 import { memoryPolicyFragmentLines } from "./dream/policy.js";
 import { fileExists, sha256Hex } from "./hash.js";
@@ -52,10 +52,7 @@ export async function installFragments(opts: {
     planned.push(`${a.id}:${target}`);
     let fragment = a.render(opts.storeHint);
     if (policyLines.length) {
-      fragment = fragment.replace(
-        MARK_END,
-        `${policyLines.join("\n")}\n${MARK_END}`,
-      );
+      fragment = fragment.replace(MARK_END, `${policyLines.join("\n")}\n${MARK_END}`);
     }
     const blockHash = sha256Hex(norm(fragment));
 
@@ -77,18 +74,14 @@ export async function installFragments(opts: {
     let existing = "";
     if (await fileExists(target)) existing = await readFile(target, "utf8");
     const preImageHash = existing ? sha256Hex(existing) : null;
-    const preImageBase64 = existing
-      ? Buffer.from(existing, "utf8").toString("base64")
-      : null;
+    const preImageBase64 = existing ? Buffer.from(existing, "utf8").toString("base64") : null;
 
     if (existing.includes(MARK_BEGIN) && existing.includes(MARK_END)) {
       const start = existing.indexOf(MARK_BEGIN);
       const end = existing.indexOf(MARK_END) + MARK_END.length;
       const managed = existing.slice(start, end);
       if (norm(managed) !== norm(fragment) && !opts.force) {
-        throw new Error(
-          `Managed block tampered in ${target}; pass --force to overwrite`,
-        );
+        throw new Error(`Managed block tampered in ${target}; pass --force to overwrite`);
       }
     }
 
@@ -130,18 +123,13 @@ export async function uninstallFragments(opts: {
       throw new Error(`Uninstall refuses store-root path in manifest: ${e.path}`);
     }
     if (e.preImageBase64 != null) {
-      await writeFile(
-        e.path,
-        Buffer.from(e.preImageBase64, "base64").toString("utf8"),
-        "utf8",
-      );
+      await writeFile(e.path, Buffer.from(e.preImageBase64, "base64").toString("utf8"), "utf8");
     } else if (await fileExists(e.path)) {
       const existing = await readFile(e.path, "utf8");
       if (existing.includes(MARK_BEGIN) && existing.includes(MARK_END)) {
         const start = existing.indexOf(MARK_BEGIN);
         const end = existing.indexOf(MARK_END) + MARK_END.length;
-        const without =
-          (existing.slice(0, start) + existing.slice(end)).trimEnd() + "\n";
+        const without = `${(existing.slice(0, start) + existing.slice(end)).trimEnd()}\n`;
         await writeFile(e.path, without === "\n" ? "" : without, "utf8");
       }
     }
@@ -150,11 +138,10 @@ export async function uninstallFragments(opts: {
   // Store-root mutation must go through MemoryStore (sole writer).
   await store.commitOperational({
     relativePath: "installer-manifest.json",
-    body:
-      JSON.stringify({
-        entries: [],
-        uninstalledAt: new Date().toISOString(),
-      }) + "\n",
+    body: `${JSON.stringify({
+      entries: [],
+      uninstalledAt: new Date().toISOString(),
+    })}\n`,
     scanSecrets: false,
   });
   return restored;
@@ -166,6 +153,6 @@ function upsertManaged(existing: string, fragment: string): string {
     const end = existing.indexOf(MARK_END) + MARK_END.length;
     return existing.slice(0, start) + fragment + existing.slice(end);
   }
-  if (!existing.trim()) return fragment + "\n";
-  return existing.replace(/\s*$/, "\n\n") + fragment + "\n";
+  if (!existing.trim()) return `${fragment}\n`;
+  return `${existing.replace(/\s*$/, "\n\n") + fragment}\n`;
 }

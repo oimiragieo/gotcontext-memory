@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { scan, SecretDetected } from "../src/secrets.js";
+import { SecretDetected, scan } from "../src/secrets.js";
 import { BASE_ABSENT, MemoryStore } from "../src/store.js";
 
 describe("secret scan gate — pattern arms", () => {
@@ -11,8 +11,8 @@ describe("secret scan gate — pattern arms", () => {
     const store = await MemoryStore.initStore(root);
     const before = await store.memoryTreeHash();
     const cases = [
-      "token ghp_" + "a".repeat(36),
-      'api_key: sk-abcdefghijklmnopqrstuvwxyz',
+      `token ghp_${"a".repeat(36)}`,
+      "api_key: sk-abcdefghijklmnopqrstuvwxyz",
       "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n",
     ];
     for (const body of cases) {
@@ -33,11 +33,11 @@ describe("secret scan gate — pattern arms", () => {
     const store = await MemoryStore.initStore(root);
     await writeFile(
       path.join(root, "config.json"),
-      JSON.stringify({
+      `${JSON.stringify({
         dream: { enabled: false, policy: {} },
         memory: { policy: {} },
         secrets: { allowlist: ["aws_access_key"] },
-      }) + "\n",
+      })}\n`,
     );
     await store.reloadConfig();
     await store.commitCanonical({
@@ -59,7 +59,7 @@ describe("secret scan gate — pattern arms", () => {
   it("scanner self-test: fixture corpus yields ≥1 findings", () => {
     const planted = [
       "AKIAIOSFODNN7EXAMPLE",
-      "ghp_" + "b".repeat(36),
+      `ghp_${"b".repeat(36)}`,
       "api_key: sk-abcdefghijklmnopqrstuvwxyz0123",
       "-----BEGIN PRIVATE KEY-----",
     ].join("\n");

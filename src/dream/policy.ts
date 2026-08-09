@@ -22,18 +22,14 @@ export function applyDreamPolicy<T extends Textish>(
   if (policy.focus?.length) {
     const needles = policy.focus.map((f) => f.toLowerCase());
     kept = kept.filter((t) => {
-      const blob = (t.turns ?? [])
-        .map((turn) => String(turn.text ?? "").toLowerCase())
-        .join("\n");
+      const blob = (t.turns ?? []).map((turn) => String(turn.text ?? "").toLowerCase()).join("\n");
       return needles.some((n) => blob.includes(n));
     });
   }
   return { kept, dropped: items.length - kept.length };
 }
 
-export function memoryPolicyFragmentLines(
-  memoryPolicy: Record<string, unknown>,
-): string[] {
+export function memoryPolicyFragmentLines(memoryPolicy: Record<string, unknown>): string[] {
   const lines: string[] = [];
   for (const [k, v] of Object.entries(memoryPolicy)) {
     lines.push(`- memory.policy.${k}: ${JSON.stringify(v)}`);

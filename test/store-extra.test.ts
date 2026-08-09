@@ -4,11 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { sha256Hex } from "../src/hash.js";
 import { assertSafeRelativePath } from "../src/paths.js";
-import {
-  BASE_ABSENT,
-  CasConflict,
-  MemoryStore,
-} from "../src/store.js";
+import { BASE_ABSENT, CasConflict, MemoryStore } from "../src/store.js";
 
 describe("path containment arms", () => {
   it("rejects absolute, drive, and UNC-shaped relatives", () => {
@@ -82,7 +78,7 @@ describe("delete + rollback", () => {
     expect(hist.length).toBeGreaterThan(0);
     const meta = hist.find((h) => h.meta);
     expect(meta?.meta).toBeTruthy();
-    await store.rollback("memory/x.md", hist[0]!.hash.slice(0, 8), {
+    await store.rollback("memory/x.md", hist[0]?.hash.slice(0, 8), {
       authored_by: "human",
     });
     const body = await store.read("memory/x.md");

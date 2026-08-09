@@ -1,4 +1,4 @@
-import { MemoryStore, BASE_ABSENT, CasConflict } from "../dist/store.js";
+import { BASE_ABSENT, CasConflict, MemoryStore } from "../dist/store.js";
 
 const [root, baseHash, body] = process.argv.slice(2);
 const store = new MemoryStore(root);
