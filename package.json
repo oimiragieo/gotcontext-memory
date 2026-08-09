@@ -17,6 +17,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
+    "verify:docker": "pwsh -NoProfile -File scripts/docker-verify.ps1",
     "prepare": "npm run build"
   },
   "files": ["dist", "LICENSE", "README.md", "docs"],

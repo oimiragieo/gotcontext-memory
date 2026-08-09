@@ -3,6 +3,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Docker dogfood artifacts
+docker/out/
+
 # Pack / publish artifacts
 *.tgz
 npm-debug.log*

@@ -8,5 +8,6 @@ Task-oriented paths.
 | [first-dream-walkthrough.md](./first-dream-walkthrough.md) | Annotated dream→accept |
 | [troubleshooting.md](./troubleshooting.md) | Symptom → fix |
 | [contributing-tests.md](./contributing-tests.md) | Adding red arms |
+| [docker-verification.md](./docker-verification.md) | Claude CLI Docker dogfood (pwsh) |
 
 ← [Documentation hub](../README.md)

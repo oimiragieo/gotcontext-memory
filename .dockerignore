@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.git
+.gotcontext
+docker/out
+**/*.log
+**/*.dispatch_pid
+**/*.status
+**/*.exit
+docs/superpowers/audits/**/BUNDLE.md
+docs/superpowers/audits/**/INVENTORY.md
+*.tgz
+.env
+.env.*
