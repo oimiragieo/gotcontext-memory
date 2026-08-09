@@ -1,0 +1,68 @@
+# Dependencies & build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Pack / publish artifacts
+*.tgz
+npm-debug.log*
+yarn-error.log*
+
+# Logs & local tooling
+**/*.log
+**/*.log.txt
+**/*.log.stderr
+.gotcontext/
+coverage/
+.turbo/
+.cache/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Thinktank / audit run noise (FNM_PATHNAME: * does not cross /)
+**/*.dispatch_pid
+**/*.exit
+**/*.status
+docs/superpowers/audits/**/BUNDLE.md
+docs/superpowers/audits/**/INVENTORY.md
+docs/superpowers/audits/**/plan_under_audit.md
+docs/superpowers/audits/**/agy.*
+docs/superpowers/audits/**/claude.*
+docs/superpowers/audits/**/codex.*
+docs/superpowers/audits/**/copilot.*
+docs/superpowers/audits/**/cursor.*
+docs/superpowers/audits/**/droid_*
+docs/thinktank_council_*/agy.*
+docs/thinktank_council_*/claude.*
+docs/thinktank_council_*/codex.*
+docs/thinktank_council_*/copilot.*
+docs/thinktank_council_*/cursor.*
+docs/thinktank_council_*/droid_*
+
+# Keep human-facing audit docs after broad seat ignores
+!docs/superpowers/audits/**/REPORT.md
+!docs/superpowers/audits/**/question.md
+!docs/superpowers/audits/**/AUDIT_EXTRACT.md
+!docs/superpowers/audits/**/CHAIRMAN*.md
+!docs/superpowers/audits/**/synthesis.md
+!docs/superpowers/audits/**/question_embedded.md
+!docs/superpowers/audits/**/question_src.md
+!docs/superpowers/audits/**/*brief.md
+!docs/superpowers/audits/**/*APPROVED.md
+!docs/superpowers/audits/**/*question.md
+!docs/thinktank_council_*/CHAIRMAN_SYNTHESIS.md
+!docs/thinktank_council_*/synthesis.md
+!docs/thinktank_council_*/question.md
