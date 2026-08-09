@@ -20,11 +20,16 @@
     "verify:docker": "pwsh -NoProfile -File scripts/docker-verify.ps1",
     "prepare": "npm run build"
   },
-  "files": ["dist", "LICENSE", "README.md", "docs"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "docs"
+  ],
   "dependencies": {
     "commander": "13.1.0",
     "proper-lockfile": "4.1.2",
-    "yaml": "2.7.0"
+    "yaml": "2.8.3"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
@@ -32,11 +37,12 @@
     "@types/proper-lockfile": "4.1.4",
     "tsx": "4.19.3",
     "typescript": "5.8.2",
-    "vitest": "3.0.9"
+    "vitest": "3.2.7"
   },
   "license": "MIT",
   "allowScripts": {
     "@biomejs/biome@1.9.4": true,
-    "esbuild@0.25.12": true
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
   }
 }
