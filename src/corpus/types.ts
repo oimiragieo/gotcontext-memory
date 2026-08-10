@@ -35,6 +35,10 @@ export type ScanResult = {
   included: number;
   excluded_permission: number;
   malformed: number;
+  /** Read/size failures — a file we could not OPEN or that exceeded a limit. NOT a
+   * parse failure. Conflating the two let an OOM-class event (a 2.3 GB transcript
+   * that readFile rejects outright) masquerade as corrupt JSONL. */
+  unreadable?: number;
   errors: Array<{ path: string; message: string }>;
   label: ScanLabel;
 };

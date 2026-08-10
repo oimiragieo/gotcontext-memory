@@ -12,6 +12,7 @@ export const claudeCorpus: CorpusSource = {
     let scanned = 0;
     let excluded = 0;
     let malformed = 0;
+    let unreadable = 0;
 
     for (const root of opts.roots) {
       let files: string[] = [];
@@ -31,8 +32,19 @@ export const claudeCorpus: CorpusSource = {
           excluded += 1;
           continue;
         }
+        let raw: string;
         try {
-          const raw = await readFile(file, "utf8");
+          // NOTE: whole-file read. On a real corpus this throws on any transcript
+          // over the V8 string ceiling ("File size (N) is greater than 2 GiB").
+          // The streaming digest path (src/dream/digest.ts) is what `dream` uses;
+          // this importer is retained for the fixture-pinned scan API.
+          raw = await readFile(file, "utf8");
+        } catch (err) {
+          unreadable += 1;
+          errors.push({ path: file, message: `unreadable: ${(err as Error).message}` });
+          continue;
+        }
+        try {
           const turns = parseClaudeJsonl(raw, path.basename(file));
           transcripts.push({
             id: path.basename(file, ".jsonl"),
@@ -44,7 +56,7 @@ export const claudeCorpus: CorpusSource = {
           });
         } catch (err) {
           malformed += 1;
-          errors.push({ path: file, message: (err as Error).message });
+          errors.push({ path: file, message: `malformed: ${(err as Error).message}` });
         }
       }
     }
@@ -57,6 +69,7 @@ export const claudeCorpus: CorpusSource = {
       included,
       excluded_permission: excluded,
       malformed,
+      unreadable,
       errors,
       label,
     };

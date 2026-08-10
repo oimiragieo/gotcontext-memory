@@ -86,3 +86,47 @@ describe("corpus importers", () => {
     }
   });
 });
+
+describe("read failure vs parse failure are distinguishable (2026-08-10)", () => {
+  /** The importer used to count BOTH a failed read and a failed parse as `malformed`,
+   * so an OOM-class event (a 2.3 GB transcript readFile rejects outright) was
+   * indistinguishable from corrupt JSONL. They are now separate counters and the
+   * error strings are prefixed with the cause.
+   *
+   * HONEST LIMIT: the non-zero `unreadable` path needs a file that readFile refuses
+   * (>2 GiB), which is not creatable in a unit test — listJsonl filters on isFile(),
+   * so a directory never reaches the read. What IS asserted here: parse failures are
+   * labelled and counted as `malformed`, `unreadable` exists as a distinct field, and
+   * the two never share a counter. The size case is covered behaviourally by the
+   * digest path's truncated-vs-malformed tests in digest.test.ts. */
+  it("a corrupt line is labelled malformed and does not touch the unreadable counter", async () => {
+    const { mkdtemp, writeFile, mkdir } = await import("node:fs/promises");
+    const osx = await import("node:os");
+    const root = await mkdtemp(path.join(osx.tmpdir(), "gcm-split-"));
+    const proj = path.join(root, "p");
+    await mkdir(proj, { recursive: true });
+    await writeFile(path.join(proj, "bad.jsonl"), "{not json\n", "utf8");
+
+    const r = await claudeCorpus.scan({ scope: "user", roots: [root] });
+    expect(r.malformed).toBe(1);
+    expect(r.unreadable ?? 0).toBe(0); // a parse failure must NOT inflate read failures
+    expect(r.errors[0]?.message.startsWith("malformed:")).toBe(true);
+  });
+
+  it("a clean file reports zero on BOTH counters (positive control)", async () => {
+    const { mkdtemp, writeFile, mkdir } = await import("node:fs/promises");
+    const osx = await import("node:os");
+    const root = await mkdtemp(path.join(osx.tmpdir(), "gcm-split-ok-"));
+    const proj = path.join(root, "p");
+    await mkdir(proj, { recursive: true });
+    await writeFile(
+      path.join(proj, "good.jsonl"),
+      `${JSON.stringify({ message: { role: "user", content: "hi" } })}\n`,
+      "utf8",
+    );
+    const r = await claudeCorpus.scan({ scope: "user", roots: [root] });
+    expect(r.malformed).toBe(0);
+    expect(r.unreadable ?? 0).toBe(0);
+    expect(r.transcripts.length).toBe(1);
+  });
+});
