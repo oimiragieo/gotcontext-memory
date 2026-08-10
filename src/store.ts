@@ -128,6 +128,8 @@ export class MemoryStore {
         try {
           await release();
         } catch {
+          // LEGITIMATE SWALLOW (cleanup): the lock is already being torn down; a
+          // release failure must not mask the error that triggered the cleanup.
           /* ignore */
         }
       }
@@ -171,7 +173,8 @@ export class MemoryStore {
       try {
         await fh.close();
       } catch {
-        /* */
+        // LEGITIMATE SWALLOW (cleanup): closing an already-failed handle must not
+        // replace the real write error we are about to rethrow.
       }
       await rm(tmp, { force: true });
       throw err;
@@ -222,6 +225,8 @@ export class MemoryStore {
     try {
       names = await readdir(revDir);
     } catch {
+      // LEGITIMATE SWALLOW (optional read): a store with no revisions/ has none to
+      // list; absence is the expected state, not an error.
       return [];
     }
     const out = [];
@@ -233,7 +238,9 @@ export class MemoryStore {
       try {
         meta = JSON.parse(await readFile(metaPath, "utf8"));
       } catch {
-        /* */
+        // LEGITIMATE SWALLOW (optional enrichment): .meta.json is optional sidecar
+        // data; a revision without readable meta is still a listable revision.
+        meta = undefined;
       }
       out.push({
         hash: hashPart,
@@ -317,7 +324,8 @@ export class LockedStore {
       try {
         await fh.close();
       } catch {
-        /* */
+        // LEGITIMATE SWALLOW (cleanup): closing an already-failed handle must not
+        // replace the real write error we are about to rethrow.
       }
       await rm(tmp, { force: true });
       throw err;

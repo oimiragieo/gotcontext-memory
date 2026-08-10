@@ -105,14 +105,19 @@ export async function handleToolCall(
         else out.push(rel);
       }
     };
+    let partial: string | null = null;
     try {
       await walk(path.join(store.root, "memory"), "memory");
-    } catch {
-      /* */
+    } catch (err) {
+      // A truncated listing returned as ok:true tells the caller "this is all your
+      // memory" when it is not. The listing still goes back (partial beats nothing),
+      // but it must never be mistaken for complete.
+      partial = `[PARTIAL LISTING — walk failed: ${(err as Error).message.slice(0, 120)}]`;
     }
+    const lines = partial ? [...out, partial] : out;
     return {
       ok: true,
-      result: { content: [{ type: "text", text: out.join("\n") }] },
+      result: { content: [{ type: "text", text: lines.join("\n") }] },
     };
   }
   if (name === "memory_commit") {

@@ -119,20 +119,43 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
     detail: "PARTIAL — no dogfood receipts",
   });
 
-  // Surface accept failure receipts (INDEX_DRIFT_OR_CAS)
+  // Surface accept-failure receipts. Their `code` names the cause (CAS_CONFLICT /
+  // SECRET_DETECTED / INDEX_CAP / TARGET_MISSING / INVALID_PROPOSAL /
+  // PROPOSAL_EXPIRED / PATH_VIOLATION / INTERNAL_ERROR).
   const receiptsDir = path.join(store.root, "receipts");
+  let ents: string[] | null = null;
   try {
-    const ents = await readdir(receiptsDir);
+    ents = await readdir(receiptsDir);
+  } catch {
+    // ONLY the directory listing may be swallowed, and only into this one row.
+    // Previously this handler also wrapped every per-receipt readFile, so a single
+    // unreadable receipt reported "receipts dir absent" — a false, reassuring claim
+    // that ALSO dropped every remaining error receipt on the floor.
+    ents = null;
+  }
+  if (ents === null) {
+    checks.push({
+      name: "accept_error_receipt",
+      status: "EMPTY",
+      detail: "receipts dir absent",
+    });
+  } else {
     const drifts = ents.filter((n) => n.endsWith(".error.json"));
     if (drifts.length) {
       ok = false;
       for (const name of drifts) {
-        const raw = await readFile(path.join(receiptsDir, name), "utf8");
-        let code = "error";
+        let code: string;
         try {
-          code = String(JSON.parse(raw).code ?? "error");
-        } catch {
-          /* */
+          const raw = await readFile(path.join(receiptsDir, name), "utf8");
+          try {
+            code = String(JSON.parse(raw).code ?? "error");
+          } catch {
+            // A receipt we cannot parse is itself a finding — never let it read as
+            // a generic "error" indistinguishable from a real recorded code.
+            code = "UNPARSEABLE_RECEIPT";
+          }
+        } catch (err) {
+          code = `UNREADABLE_RECEIPT (${(err as Error).message.slice(0, 60)})`;
         }
         checks.push({
           name: "accept_error_receipt",
@@ -147,12 +170,6 @@ export async function runDoctor(store: MemoryStore): Promise<DoctorReport> {
         detail: "receipts: 0 error files",
       });
     }
-  } catch {
-    checks.push({
-      name: "accept_error_receipt",
-      status: "EMPTY",
-      detail: "receipts dir absent",
-    });
   }
 
   const hash = await store.memoryTreeHash();

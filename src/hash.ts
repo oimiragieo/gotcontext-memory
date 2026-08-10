@@ -50,6 +50,8 @@ export async function fileExists(p: string): Promise<boolean> {
     await stat(p);
     return true;
   } catch {
+    // LEGITIMATE SWALLOW: this function's entire contract is "does it exist" —
+    // a throw IS the negative answer, not a hidden failure.
     return false;
   }
 }

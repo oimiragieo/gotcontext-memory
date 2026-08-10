@@ -17,6 +17,8 @@ export const opencodeCorpus: CorpusSource = {
         };
         await walk(root);
       } catch {
+        // LEGITIMATE SWALLOW (optional root): a harness that is not installed has no
+        // corpus directory; absence is enumerated as zero, not as an error.
         /* */
       }
     }
