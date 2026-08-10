@@ -1,6 +1,6 @@
 # Feature: Corpus importers
 
-**Code:** `src/corpus/*`  
+**Code:** `src/corpus/*`, `src/dream/digest.ts` (CLI dream path)  
 **Tests:** `test/corpus.test.ts`  
 **Formats:** [transcript-formats.md](../adapters/transcript-formats.md) · [harness matrix](../adapters/harness-matrix.md)
 
@@ -8,8 +8,9 @@
 
 ## Purpose
 
-Turn each harness’s on-disk session logs into a shared `Transcript` shape so
-dream extraction does not care which product produced the chat.
+Turn each harness’s on-disk session logs into a shared `Transcript` shape for
+library/tests, and (for CLI dream) feed the **streaming digest** path so
+extraction does not care which product produced the chat.
 
 ---
 
@@ -56,28 +57,36 @@ a file fails parse after being selected).
 - Also accepts Claude-shaped migration lines
 - Tool/skill arrays usually empty in fixtures (documented in HONESTY)
 
-### Cursor (`cursor.ts`) — FULL turns
+### Cursor (`cursor.ts`) — FULL turns in library; **digest dream gap**
 
-1. `*.jsonl` like siblings
-2. `*.vscdb` / `state.vscdb` via read-only `node:sqlite` reading `ItemTable`
+1. `*.jsonl` like siblings — **used by CLI dream digests**
+2. `*.vscdb` / `state.vscdb` via read-only `node:sqlite` reading `ItemTable` —
+   **still implemented in `cursorCorpus.scan`**, but CLI `dream` calls
+   `digestRoots` which enumerates **`*.jsonl` only**. Cursor SQLite sessions are
+   therefore **not** dreamed today (**BL-DRM-016**, pre-1.0 must-fix).
 
 ### agy / OpenCode — PARTIAL
 
 - Enumerate candidate files
 - Return zero transcripts + PARTIAL label + per-path messages
+- Any `*.jsonl` under default roots can still be digested by CLI dream
 
 ---
 
-## CLI root defaults (important)
+## CLI root defaults (`defaultCorpusRoots`)
 
-In `src/cli.ts` today:
+In `src/corpus/roots.ts` (used by `src/cli.ts` dream):
 
-- Claude → `~/.claude/projects`
-- Other sources → `<storeRoot>/fixtures/<name>`
+| Source | Default roots |
+|---|---|
+| Claude | `~/.claude/projects` |
+| Codex | `~/.codex/sessions`, `~/.codex/projects` |
+| Cursor | `~/.cursor/projects`, `<cwd>/.cursor` |
+| agy | `~/.agy/sessions`, `~/.antigravitycli` |
+| OpenCode | `~/.opencode/sessions`, `~/.opencode/projects` |
 
-So for Codex/Cursor dream against live machine logs, operators typically place
-or symlink fixtures, or call importers from tests/tools with explicit roots.
-This is a common junior footgun — see [troubleshooting](../guides/troubleshooting.md).
+Dogfood may seed package fixtures into these paths (`docker/verify.sh`). Parse
+contracts for unit tests live under `test/fixtures/transcripts/<name>/`.
 
 ---
 
@@ -86,7 +95,7 @@ This is a common junior footgun — see [troubleshooting](../guides/troubleshoot
 1. Document format in `docs/adapters/transcript-formats.md`
 2. Implement `CorpusSource` with EMPTY + positive + malformed arms
 3. Add fixtures under `test/fixtures/transcripts/<name>/`
-4. Wire into CLI `sources` map
-5. Update HONESTY matrix (FULL vs PARTIAL)
+4. Wire into CLI `sources` map **and** decide digest coverage (`*.jsonl` vs richer)
+5. Update HONESTY matrix (FULL vs PARTIAL; note any digest gaps)
 
 ← [config-and-tiers](./config-and-tiers.md) · Next → [dream.md](./dream.md)

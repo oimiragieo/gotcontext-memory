@@ -42,14 +42,7 @@ Parity target = **HITL shape only**, not LLM brain or auto-supersede.
 9. **Overlay types** — `deletes: []` not `{}`.
 10. **dream.enabled** — enforce or stop pretending; CLI needs `--force` when false.
 11. **Scale** — stream digests; never `readFile` whole multi-GB transcripts; truncated ≠ malformed.
-12. **No resurrection — TWO mechanisms, not one.** REJECTED claims are suppressed by an
-    immutable `claimKey` (`loadSuppressedClaims` reads `proposals/rejected/`, `src/dream/run.ts`).
-    ACCEPTED claims are stopped by a SEPARATE settled-state check —
-    `if (storeHashes.has(targetPath)) continue;`. Conflating them hides the real bug: accepting a
-    re-proposed `create` over a materialised target silently overwrites any human edit made since.
-    Never key claim identity on `base_hash` — it changes the instant the target exists, minting a
-    "new" id for a settled claim (negative cache / tombstone; a tombstone that never expires is
-    itself an anti-pattern).
+12. **No resurrection** — rejected → `claimKey` from `proposals/rejected/`; accepted prefs → skip when `storeHashes` already has `targetPath` (do not re-propose create over live notes).
 13. **Prevalence window** — `--max-sessions` (default 400); sort by evidence strength.
 14. **Dirty-tree commits** — stage only your paths; strip `.tensor-grep/` before merge.
 15. **Cursor `.vscdb`** — digest path currently skips it; must re-wire before 1.0.0 (BL-DRM-016).
@@ -66,17 +59,3 @@ Parity target = **HITL shape only**, not LLM brain or auto-supersede.
 ```bash
 cd gotcontext-memory && npm test && npm run lint && npm run build
 ```
-
-17. **Prevalence is clustered by STRING, not by meaning.** `minePrevalence` (`src/dream/digest.ts`)
-    buckets by a normalised `signalKey` (lowercased; paths/hashes/digits stripped) and requires
-    >=2 DISTINCT sessions before proposing, reporting `k/n sessions` with line-numbered citations.
-    Two phrasings of the same problem land in different buckets and are NOT merged. Say "counted",
-    never "inferred" — this is not an LLM brain.
-18. **`receiptCode` names the cause.** `src/review.ts` returns CAS_CONFLICT, SECRET_DETECTED,
-    INDEX_CAP, TARGET_MISSING, INVALID_PROPOSAL, PROPOSAL_EXPIRED, PATH_VIOLATION, or
-    INTERNAL_ERROR (fallback for genuinely unrecognised errors only). This replaced filing every
-    unrecognised failure as `INDEX_DRIFT_OR_CAS`, which sent operators to reconcile an index that
-    was never the problem. Read `receipts/*.error.json` when an accept fails.
-19. **Scale is a correctness property.** Whole-file corpus reads die at the V8 string ceiling on a
-    real machine; the digest path is load-bearing, not an optimisation. See
-    `ingest-a-corpus-that-exceeds-memory`.

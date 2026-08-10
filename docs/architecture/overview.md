@@ -23,8 +23,8 @@ From the design council:
 ┌─────────────────────────────────────────────┐
 │  CLI (src/cli.ts)  ·  MCP stdio (src/mcp/)  │  user-facing I/O
 ├─────────────────────────────────────────────┤
-│  dream · review · doctor · installer ·      │  use-cases
-│  portability · corpus · index · policy      │
+│  dream (digest+run) · review · doctor ·     │  use-cases
+│  installer · portability · corpus · index   │
 ├─────────────────────────────────────────────┤
 │  MemoryStore (src/store.ts)                 │  sole store writer
 ├─────────────────────────────────────────────┤
@@ -34,6 +34,10 @@ From the design council:
 │  filesystem (store root + external adapters)│
 └─────────────────────────────────────────────┘
 ```
+
+**Dream path:** CLI streams transcripts into bounded digests (`src/dream/digest.ts`)
+then extracts preference + windowed-prevalence proposals (`runDreamFromDigests`).
+MCP `memory_commit` stays default-off (`mcp.allowCommit: false`).
 
 **Rule of thumb:** use-case modules must not call `fs.writeFile` on the store.
 They call `MemoryStore` methods. The AST guard in tests enforces this for `src/`.

@@ -1,6 +1,6 @@
 # HITL dreaming — the product loop
 
-**Code:** `src/dream/run.ts`, `src/review.ts`, `src/corpus/*`  
+**Code:** `src/dream/digest.ts`, `src/dream/run.ts`, `src/review.ts`, `src/corpus/*`  
 **Related:** [dream feature](../features/dream.md) · [review feature](../features/review.md) · [HONESTY](../HONESTY.md)
 
 ---
@@ -9,8 +9,8 @@
 
 **Dreaming** in this package means:
 
-> Scan transcripts → extract candidate memory changes → write **proposals** →
-> wait for a human to accept or reject.
+> Scan transcripts → reduce to digests → extract candidate memory changes → write
+> **proposals** → wait for a human to accept or reject.
 
 It does **not** mean automatic fact reconciliation or silent apply
 (omega `memory_dream` parity is explicitly out of scope).
@@ -19,39 +19,41 @@ It does **not** mean automatic fact reconciliation or silent apply
 
 ## Stages
 
-### Stage A — Corpus
+### Stage A — Corpus digests (CLI)
 
-Importers turn on-disk session logs into `Transcript` objects:
+CLI `dream` walks default harness roots (`defaultCorpusRoots`) and streams every
+`*.jsonl` into a ~1 KB `SessionDigest` (`digestRoots`). Peak memory is one line
+plus the digest array — never whole transcripts / never the full corpus.
 
-| Source | Status |
+| Source | Dream path status |
 |---|---|
-| Claude Code | Full JSONL importer |
-| Codex | Full JSONL importer (turns) |
-| Cursor | JSONL + read-only `node:sqlite` `.vscdb` |
-| agy / OpenCode | PARTIAL — enumerate only |
+| Claude Code | FULL — `*.jsonl` digests |
+| Codex | FULL — `*.jsonl` digests |
+| Cursor | JSONL digests only. **`.vscdb` gap:** `cursorCorpus` still has a read-only `node:sqlite` reader for tests/tools, but digest enumeration is `*.jsonl` only, so CLI dream **does not** consult `.vscdb` (BL-DRM-016, pre-1.0 must-fix). |
+| agy / OpenCode | PARTIAL importers remain; dream still digests any `*.jsonl` under their default roots |
 
 Details: [corpus-importers.md](../features/corpus-importers.md),
 [transcript-formats.md](../adapters/transcript-formats.md).
 
-### Stage B — Policy filter
+`truncated` (byte ceiling) is reported separately from `malformed` (parse failure).
 
-`applyDreamPolicy` (`src/dream/policy.ts`):
+### Stage B — Window + empty check
 
-- Drop transcripts whose `source` is in `dream.policy.excludeSources`
-- If `dream.policy.focus` is set, keep only transcripts whose turn text contains
-  at least one focus keyword (case-insensitive)
-
-Empty kept set → `EMPTY_CORPUS` error (nonzero exit). Zero is labeled, never a
+Newest `--max-sessions` digests per source (default **400**), ordered by session
+clock. Empty digest set → `EMPTY_CORPUS` (nonzero exit). Zero is labeled, never a
 silent “clean” success.
 
-### Stage C — Extract proposals
+(Library `runDream` still applies `applyDreamPolicy` on full transcripts for
+fixtures; CLI production path is `runDreamFromDigests`.)
 
-`extractProposals` looks for user/human turns matching preference-like phrases
-(`please remember`, `from now on` — not bare `always`/`prefer`; health/pong spans denied). It builds `create`
-proposals with deterministic ids (`proposalId` = sha256 of stable fields).
+### Stage C — Extract proposals (two signals)
 
-Additionally, `staleExpireProposals` may emit `expire` actions for memory files
-older than ~90 days (based on frontmatter timestamps).
+1. **Preferences** from digest preference spans (`please remember` / `from now on`).
+2. **Prevalence** via `minePrevalence` (≥2 distinct sessions): tool errors, hook
+   blocks, user corrections → `memory/pattern-*.md` with `k/n` + citations.
+
+Skip if the target already exists (accepted / human-edited). Suppress if
+`claimKey(targetPath, body)` is in `proposals/rejected/` (`loadSuppressedClaims`).
 
 ### Stage D — Write proposals (operational)
 
@@ -61,16 +63,15 @@ For each candidate:
 2. If clean → `commitOperational(proposals/<id>.json)`
 3. If secret → increment `withheldSecrets`, skip
 
-Assert `memoryTreeHash` unchanged. Return `{ proposals, withheldSecrets, dropped }`.
-
-`maxProposals` truncates after extraction; dropped count includes those truncations.
+Assert `memoryTreeHash` unchanged. Return counts including `suppressedRejected`,
+`patterns`, `dropped` (`maxProposals` truncates after evidence-strength sort).
 
 ### Stage E — Human review
 
 | Command | Effect on canonical memory |
 |---|---|
 | `review list` / `show` | none |
-| `review reject` | none (`memoryTreeHash` invariant) |
+| `review reject` | none (`memoryTreeHash` invariant); claim enters suppression set |
 | `review accept --yes` | target + index (or delete/expire) |
 
 Accept internals: [review.md](../features/review.md).
@@ -83,18 +84,18 @@ Accept internals: [review.md](../features/review.md).
 sequenceDiagram
   participant U as Human
   participant CLI as gcm CLI
-  participant C as Corpus
+  participant Dig as Digest
   participant D as Dream
   participant S as MemoryStore
   participant R as Review
 
-  U->>CLI: dream --source claude
-  CLI->>C: scan(roots)
-  C-->>CLI: Transcript[]
-  CLI->>D: runDream(store, transcripts)
-  D->>S: commitOperational(proposals/…)
+  U->>CLI: dream --source claude [--force] [--max-sessions 400]
+  CLI->>Dig: digestRoots(*.jsonl)
+  Dig-->>CLI: SessionDigest[]
+  CLI->>D: runDreamFromDigests(store, digests)
+  D->>S: loadSuppressedClaims + commitOperational(proposals/…)
   Note over S: memoryTreeHash unchanged
-  D-->>U: proposal count JSON
+  D-->>U: proposals / patterns / suppressedRejected JSON
 
   U->>CLI: review list
   U->>CLI: review accept id --yes
@@ -107,10 +108,12 @@ sequenceDiagram
 
 ---
 
-## Idempotency note
+## Idempotency / anti-resurrection
 
-Proposal ids are hashes of action/path/base_hash/body/evidence quotes (not
-`createdAt`). Re-running dream on the same corpus tends to recreate the same
-ids; writing the same operational path again overwrites the JSON.
+- `proposalId` hashes action/path/`base_hash`/body/evidence quotes (not `createdAt`).
+- **Suppression uses `claimKey`**, not `proposalId` — so a reject stays dead even
+  when `base_hash` would otherwise change the id after an accept.
+- Re-running dream over the same window tends to recreate the same pending ids;
+  writing the same operational path again overwrites the JSON.
 
 Next → [architecture/overview.md](../architecture/overview.md)

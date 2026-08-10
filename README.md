@@ -6,7 +6,17 @@ New here? Start with the docs hub — especially if you are learning the system:
 
 **→ [docs/README.md](docs/README.md)** (documentation map)  
 **→ [docs/START-HERE.md](docs/START-HERE.md)** (plain-language orientation)  
-**→ [docs/guides/quickstart.md](docs/guides/quickstart.md)** (install → init → dream)
+**→ [docs/guides/quickstart.md](docs/guides/quickstart.md)** (install → init → dream)  
+**→ [AGENTS.md](AGENTS.md)** · **[docs/SKILLS.md](docs/SKILLS.md)** (agents / skill registry)
+
+### For agents
+
+- [AGENTS.md](AGENTS.md) — entry rules, verify commands, dirty-tree hygiene  
+- [CLAUDE.md](CLAUDE.md) — same contract for Claude Code  
+- [docs/SKILLS.md](docs/SKILLS.md) — skill registry  
+- [docs/WORKFLOWS.md](docs/WORKFLOWS.md) — multi-lane doc/skill evolution  
+- [docs/LESSONS_2026-08-09.md](docs/LESSONS_2026-08-09.md) — L1–L20  
+- [docs/HONESTY.md](docs/HONESTY.md) — claim boundaries  
 
 ---
 
@@ -72,7 +82,7 @@ Design history (plan / audits): [docs/superpowers/](docs/superpowers/).
 |---|---|---|
 | Claude Code | yes | full (incl. skill events when present) |
 | Codex | yes | full turns (tool/skill metadata often empty) |
-| Cursor | yes | full turns via JSONL + read-only sqlite (tool/skill partial) |
+| Cursor | yes | JSONL digests for dream; `.vscdb` reader exists but **not** on digest path (BL-DRM-016) |
 | agy | yes | PARTIAL |
 | OpenCode | yes | PARTIAL |
 

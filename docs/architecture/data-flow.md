@@ -27,19 +27,23 @@ gcm init [--project]
 ## Dream
 
 ```text
-gcm dream --source <name> --store <tier>
+gcm dream --source <name> --store <tier> [--force] [--max-sessions 400]
    │
-   ├─► openStore
-   ├─► for each selected CorpusSource:
-   │      scan({ scope, roots, projectKey? })
-   │         Claude roots: ~/.claude/projects
-   │         others: <store>/fixtures/<name>  (CLI default today)
+   ├─► openStore; refuse if !dream.enabled && !--force
+   ├─► for each selected source:
+   │      digestRoots({ roots: defaultCorpusRoots(name), maxSessions, projectKey? })
+   │         stream *.jsonl → ~1 KB SessionDigest[]
+   │         truncated (byte ceiling) counted separately from malformed
+   │         newest maxSessions by session clock
    │
-   └─► runDream(store, transcripts, counts)
-          policy filter → extract → secret filter
-          commitOperational(proposals/<id>.json)*
+   └─► runDreamFromDigests(store, digests, counts)
+          prefs + minePrevalence (≥2 sessions)
+          claimKey suppress from proposals/rejected/
+          secret filter → commitOperational(proposals/<id>.json)*
           assert memoryTreeHash stable
 ```
+
+Note: digest path is `*.jsonl` only — Cursor `.vscdb` not consulted (BL-DRM-016).
 
 ---
 

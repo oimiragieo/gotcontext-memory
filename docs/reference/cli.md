@@ -35,10 +35,27 @@ Restores adapter pre-images; clears manifest via MemoryStore.
 ## `dream`
 
 ```bash
-gotcontext-memory dream [--source name] [--scope user|project] [--store …] [--force]
+gotcontext-memory dream \
+  [--source claude|codex|cursor|agy|opencode|all] \
+  [--scope user|project] \
+  [--store user|project] \
+  [--force] \
+  [--max-sessions 400]
 ```
 
-`--source` default `all`. See [dream.md](../features/dream.md).
+| Flag | Default | Meaning |
+|---|---|---|
+| `--source` | `all` | Harness corpora to digest |
+| `--scope` | (store tier) | Scope / optional projectKey filter |
+| `--force` | off | Run even when `dream.enabled` is false (install default) |
+| `--max-sessions` | `400` | Newest sessions **per source** after digest |
+
+Streams `*.jsonl` into ~1 KB digests, then emits preference + windowed-prevalence
+proposals. See [dream.md](../features/dream.md).
+
+Stdout includes `patterns`, `suppressedRejected`, `truncated` (≠ malformed), and
+per-source summaries. Exit 1 on `EMPTY_CORPUS` or when dreaming is disabled
+without `--force`.
 
 ---
 
@@ -79,6 +96,7 @@ gotcontext-memory import --from /abs/path.gcm.gz --replace
 gotcontext-memory mcp [--store …]
 ```
 
-Stdio JSON-RPC loop. See [mcp.md](../features/mcp.md).
+Stdio JSON-RPC loop. `memory_commit` is **default-off** (`mcp.allowCommit: false`).
+See [mcp.md](../features/mcp.md).
 
 ← [Hub](../README.md)

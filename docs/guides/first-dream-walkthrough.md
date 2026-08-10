@@ -6,13 +6,17 @@ This walkthrough uses the **library API + test fixtures** so it works even when
 you have no Claude sessions on the machine. Junior analysts can paste it into a
 scratch script under `/tmp`.
 
+**CLI note:** production `gotcontext-memory dream` streams digests and requires
+`--force` when `dream.enabled` is false (the install default). This script calls
+`runDream` directly on fixtures, so the enabled gate does not apply here.
+
 ---
 
 ## Setup
 
 ```bash
 cd /path/to/gotcontext-memory
-npm test   # optional confidence: 48 passing
+npm test   # optional confidence: 85 passing
 ```
 
 Create `/tmp/gcm-walkthrough.mjs` (ESM; package is `"type": "module"`):
@@ -87,6 +91,13 @@ EOF
 Easier: copy the script into the repo as a disposable file and
 `node scratch-walkthrough.mjs`.
 
+**Operator CLI equivalent** (after `init`, with live or fixture roots):
+
+```bash
+gotcontext-memory dream --source claude --force --max-sessions 400
+gotcontext-memory review list
+```
+
 ---
 
 ## What you should observe
@@ -105,5 +116,6 @@ Easier: copy the script into the repo as a disposable file and
 1. Put `AKIAIOSFODNN7EXAMPLE` in the user message → dream withholds (`withheldSecrets`)
 2. Accept twice → second accept fails (proposal gone) or CAS if you craft stale base
 3. Run `doctor` on the store root via CLI after pointing `--store` appropriately
+4. Reject a proposal, re-run dream → same claim suppressed (`claimKey` / `suppressedRejected`)
 
 Next → [troubleshooting.md](./troubleshooting.md)

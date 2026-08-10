@@ -21,7 +21,8 @@ navigable.
 | 7 | [HONESTY.md](./HONESTY.md) | Claim boundaries (read before demos or PRs) |
 | 8 | [BACKLOG.md](./BACKLOG.md) | Complete open work list |
 | 9 | [CEO_UPDATE_2026-08-09.md](./CEO_UPDATE_2026-08-09.md) | Latest human brief |
-| 10 | [LESSONS_2026-08-09.md](./LESSONS_2026-08-09.md) | Lessons L1–L14 to retain |
+| 10 | [LESSONS_2026-08-09.md](./LESSONS_2026-08-09.md) | Lessons L1–L20 to retain (esp. **L15–L20** digests / claimKey / `.vscdb`) |
+| 11 | [SKILLS.md](./SKILLS.md) | Which agent skills to load for dream / store / MCP work |
 
 ---
 
@@ -32,6 +33,11 @@ docs/
 ├── README.md                 ← you are here (hub)
 ├── START-HERE.md             ← product orientation
 ├── HONESTY.md                ← claim boundaries
+├── SKILLS.md                 ← agent skill registry
+├── WORKFLOWS.md              ← multi-lane doc/skill evolution
+├── research/                 ← prior-art memos (WebSearch/Exa labeled)
+├── LESSONS_2026-08-09.md     ← L1–L20 (retain)
+├── BACKLOG.md / CEO_UPDATE_* ← open work + human brief
 ├── glossary.md               ← vocabulary
 │
 ├── concepts/                 ← durable ideas (read before features)
@@ -130,3 +136,4 @@ code + these guides are the living contract; the plan is historical intent.
 ## Package version
 
 Current package version: **0.9.0** (see root `package.json` and [HONESTY.md](./HONESTY.md)).
+Main dream tip: **`6ecf0c9`** (streaming digests + windowed prevalence; **85** tests).

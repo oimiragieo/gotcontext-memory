@@ -1,6 +1,6 @@
 # Backlog — gotcontext-memory (complete list)
 
-**As of:** 2026-08-09 (post `2676a6c` digest/prevalence on `feat/digest-prevalence-parity`)  
+**As of:** 2026-08-09 (main `6ecf0c9` — digests/prevalence + deep-dive; **85 tests green**; CI green on merge)  
 **Version:** 0.9.0  
 **Rule:** If it is open work, it is on this list. Closed work belongs in audits/CHANGELOG, not here.
 
@@ -8,13 +8,13 @@ Status tags: `OPEN` | `BLOCKED` | `PARKED` | `DONE`
 
 ---
 
-## Merge hygiene (CEO call before main)
+## Merge hygiene (`6ecf0c9` code land; docs wave may trail)
 
 | ID | Item | Status | Notes |
 |---|---|---|---|
-| BL-MRG-001 | Untangle co-mingled commit `2676a6c` | BLOCKED | Digests+prevalence + prior deep-dive remediation + accidental `src/.tensor-grep/sessions/*`. `e6f76f0` intact on `main`. |
-| BL-MRG-002 | gitignore `.tensor-grep/` and drop from branch | OPEN | Must not ship daemon session dumps |
-| BL-MRG-003 | Land uncommitted CEO/docs/skills wave after merge | OPEN | Working tree has BACKLOG/LESSONS/AGENTS etc. |
+| BL-MRG-001 | Untangle co-mingled digest + deep-dive land | DONE | Main tip `6ecf0c9` |
+| BL-MRG-002 | gitignore `.tensor-grep/` and drop from tree | DONE | `.gitignore` covers `.tensor-grep/`, `**/.tensor-grep/`, `src/.tensor-grep/` |
+| BL-MRG-003 | Land CEO/docs/skills wave with merge | DONE | Retention wave on main (skills registry, L15–L21, WORKFLOWS) |
 
 ---
 
@@ -36,7 +36,7 @@ Status tags: `OPEN` | `BLOCKED` | `PARKED` | `DONE`
 | BL-DRM-002 | Semantic merge across phrasings | OPEN | String-key prevalence only |
 | BL-DRM-011 | Streaming digests + bounded heap | DONE | `digest.ts`; 17k sessions / 512 MB |
 | BL-DRM-012 | Cross-session prevalence proposals | DONE | tool errors / hooks / corrections |
-| BL-DRM-013 | Suppress rejected + accepted resurrection | DONE | `claimKey` + suppression tests |
+| BL-DRM-013 | Suppress rejected + accepted resurrection | DONE | rejected=`claimKey`; accepted prefs=path presence |
 | BL-DRM-014 | maxProposals by evidence strength | DONE | was sha256 id sort |
 | BL-DRM-015 | `--max-sessions` window (default 400) | DONE | |
 | BL-DRM-016 | Re-wire Cursor `.vscdb` into digest path | OPEN | **Pre-1.0 must-fix** |
@@ -64,7 +64,7 @@ Status tags: `OPEN` | `BLOCKED` | `PARKED` | `DONE`
 
 BL-SEC-001 import allowlist trust · BL-SEC-002 gunzip caps · BL-SEC-003 path fail-closed · BL-SEC-004 post-lock revalidate · BL-SEC-005 journal lock · BL-SEC-006 Windows case paths · BL-SEC-007 YAML budget · BL-SEC-008 uninstall hash check · BL-SEC-009 MCP orphan index · BL-SEC-010 lock stale 10s.
 
-**DONE this branch:** github_pat_ + related scanner gaps; receiptCode specificity; listProposals corrupt isolation.
+**DONE on main (`6ecf0c9`):** github_pat_ + related scanner gaps; receiptCode specificity; listProposals corrupt isolation; MCP `allowCommit` default-off.
 
 ## E. Portability (OPEN)
 
@@ -91,5 +91,4 @@ BL-RSH-001 LLM parity scope · BL-RSH-002 PC pong · BL-RSH-003 memory_dream sta
 ## Closed reference
 
 - Deep-dive CRITICAL/HIGH: `docs/audits/2026-08-09-gotcontext-memory-deep-dive.md`
-- Digest/prevalence: commit `2676a6c` message + `docs/HONESTY.md` dreaming section
-EOF
+- Digest/prevalence: main `6ecf0c9` + `docs/HONESTY.md` dreaming section

@@ -1,5 +1,5 @@
 ---
-description: gotcontext-memory HITL honesty, lock/index races, MCP default-off, dream FP filters, inert-test traps
+description: gotcontext-memory HITL honesty, digests/prevalence, lock/index races, MCP default-off
 alwaysApply: true
 ---
 
@@ -7,13 +7,14 @@ alwaysApply: true
 
 Before changing dream/store/MCP/review:
 
-1. Read `docs/HONESTY.md`, `docs/BACKLOG.md`, `docs/LESSONS_2026-08-09.md`.
-2. Canonical memory = HITL accept only unless `mcp.allowCommit: true` (conscious non-HITL).
-3. Locks always use `locks/<sha256(rel)>.lock` — never abs-vs-stub split.
-4. Accept regenerates `MEMORY.md` under lock; concurrency tests must be multi-process.
-5. No bare `always`/`prefer` preference regex; deny pong/ping/health.
-6. Doctor caps must fail when over — detect≠enforce.
-7. Do not claim omega `memory_dream` / LLM `transcript_dream` parity.
-8. Version 0.9.0 until CEO publish gate. Prefer `tg` for symbol audits.
-9. Verify: `npm test && npm run lint && npm run build`.
-10. Dream CLI: `dream.enabled` or `--force`.
+1. Read `docs/HONESTY.md`, `docs/BACKLOG.md`, `docs/LESSONS_2026-08-09.md` (L1–L21), `docs/SKILLS.md`.
+2. Load the matching skill: HITL → `gotcontext-memory-hitl-honesty`; scale → `gotcontext-memory-streaming-digests`; resurrection/prevalence → `gotcontext-memory-claim-lifecycle`.
+3. Canonical memory = HITL accept only unless `mcp.allowCommit: true` (conscious non-HITL).
+4. Dream = streaming digests + prefs + windowed prevalence; proposals only; `--max-sessions` default 400.
+5. Locks always `locks/<sha256(rel)>.lock`; accept regenerates `MEMORY.md` under lock (multi-process tests).
+6. No bare `always`/`prefer`; deny pong/ping/health. Rejected → `claimKey`; accepted prefs → skip if path exists.
+7. Doctor caps must fail when over — detect≠enforce.
+8. Do not claim omega `memory_dream` / LLM `transcript_dream` parity. BL-DRM-016 (`.vscdb`) is open.
+9. Version 0.9.0 until CEO publish gate. Prefer `tg` for symbol audits.
+10. Verify: `npm test && npm run lint && npm run build`. Dream CLI: `dream.enabled` or `--force`.
+11. Research: Exa/`use-exa` if available; else label WebSearch (L13). Stage only your paths.

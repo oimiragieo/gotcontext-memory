@@ -4,18 +4,19 @@ Plain English. No jargon required.
 
 ## Bottom line
 
-We audited the package hard, **fixed the dangerous bugs**, and proved tests still pass (**66 green**). It is still **0.9.0** — not “done / 1.0” until you say ship. It is **not** the same as last night’s JARVIS/omega dream on your PC (that one uses an LLM and staged a bunch of “pong” junk).
+We audited the package hard, **fixed the dangerous bugs**, landed **streaming digests + windowed prevalence** on main, and proved tests still pass (**85 green**). Merge tip: **`6ecf0c9`**. It is still **0.9.0** — not “done / 1.0” until you say ship. It is **not** the same as last night’s JARVIS/omega dream on your PC (that one uses an LLM and staged a bunch of “pong” junk).
 
 ---
 
 ## What worked
 
 1. **Deep-dive found real bugs** prior “all clear” audits missed (lock split, accept race, fake symlink test, MCP could rewrite memory without your OK).
-2. **We fixed the critical/high set** and re-checked: tests, lint, TypeScript build all green.
-3. **Honesty stayed honest:** dreaming still only writes *proposals*; you still have to accept. MCP direct commit is now **off unless you flip a flag**.
+2. **We fixed the critical/high set** and re-checked: tests, lint, TypeScript build all green (**85** tests).
+3. **Honesty stayed honest:** dreaming still only writes *proposals*; you still have to accept. MCP direct commit is now **off unless you flip a flag** (`mcp.allowCommit: false`).
 4. **Preference spam filter:** bare “always/prefer” and health-check “pong” text no longer become proposals.
 5. **Docker dogfood** still works if you pass `--force` when `dream.enabled` is false (default).
 6. **Repo is public MIT** with CI on three OSes (from earlier work this weekend).
+7. **Digest / prevalence MERGED on main (`6ecf0c9`):** streams multi-GB corpora into ~1 KB digests; two dream signals (prefs + windowed prevalence); `claimKey` stops rejected/accepted resurrection; `--max-sessions` default 400.
 
 ---
 
@@ -25,6 +26,7 @@ We audited the package hard, **fixed the dangerous bugs**, and proved tests stil
 - PC **memory_dream** (auto consolidator) **did not run** (last run ~Jul 23).
 - Thinktank `tt_quick` **infra failed** this session; we used a 3-agent fallback instead. Seats themselves smoke-tested OK.
 - **Exa** was not available (no MCP / no API key) — used web search for competitor/security freshness.
+- **Cursor `.vscdb` gap (BL-DRM-016):** digest dream reads `*.jsonl` only — SQLite Cursor sessions are not dreamed until that is re-wired (pre-1.0 must-fix).
 
 ---
 
@@ -35,7 +37,7 @@ Canonical list: [`docs/BACKLOG.md`](./BACKLOG.md). Summary buckets:
 | Bucket | Examples |
 |---|---|
 | **Ship / release** | CEO go for `1.0.0`; reconcile stale plan checkboxes |
-| **Dream quality** | LLM reviewer parity with omega; richer lenses (contradict/supersede); filter health transcripts at PC omega |
+| **Dream quality** | LLM reviewer parity with omega; richer lenses (contradict/supersede); filter health transcripts at PC omega; **re-wire `.vscdb` (BL-DRM-016)** |
 | **Corpus** | Real agy + OpenCode parsers (still PARTIAL stubs) |
 | **Portability / install** | Export installer-manifest; proposal round-trip; uninstall harden |
 | **Security follow-ups** | Import allowlist trust; gunzip size caps; path TOCTOU/symlink harden |
@@ -57,7 +59,7 @@ Canonical list: [`docs/BACKLOG.md`](./BACKLOG.md). Summary buckets:
 
 ## Lessons learned (5+)
 
-Full write-up: [`docs/LESSONS_2026-08-09.md`](./LESSONS_2026-08-09.md). Short list:
+Full write-up: [`docs/LESSONS_2026-08-09.md`](./LESSONS_2026-08-09.md) (L1–L20). Short list:
 
 1. **Green tests can be fake** — missing `import` + catch-all skip = “symlink safe” lie.
 2. **A check that never fails is not a check** — doctor `index_caps` always said pass.
@@ -69,24 +71,27 @@ Full write-up: [`docs/LESSONS_2026-08-09.md`](./LESSONS_2026-08-09.md). Short li
 8. **Sequential TDD oracles can miss concurrency bugs** — need overlapping accepts.
 9. **Thinktank smoke ≠ thinktank workload** — have a Claude-lens fallback ready.
 10. **gotcontext ≠ omega dream** — never sell regex package as live LLM dream.
+11. **Real corpus scale needs digests** — truncated ≠ malformed (L15).
+12. **Rejected claims must stay dead** — `claimKey` independent of `base_hash` (L16).
+13. **Unbounded prevalence is useless** — window with `--max-sessions` (L17).
+14. **Closing OOM can drop `.vscdb`** — document + track BL-DRM-016 (L18).
 
-Retained in: this doc, `BACKLOG.md`, `LESSONS_*.md`, `AGENTS.md`, Cursor rule, skill `gotcontext-memory-hitl-honesty`, omega `MEMORY.md` index.
+Retained in: this doc, `BACKLOG.md`, `LESSONS_*.md`, `AGENTS.md`, Cursor rule, skills under [SKILLS.md](./SKILLS.md), omega `MEMORY.md` index.
 
 ---
 
-## Addendum — digest / prevalence branch (`2676a6c`)
+## Addendum — digest / prevalence (**MERGED** `6ecf0c9`)
 
-**Branch:** `feat/digest-prevalence-parity` (not merged). **Tests:** 85 green (verified).
+**Status:** on **main** as `6ecf0c9` (was branch tip `2676a6c` / `feat/digest-prevalence-parity`). **Tests:** **85 green** (verified). Merge hygiene items (tensor-grep gitignore, untangle) closed — see BACKLOG BL-MRG-*.
 
 ### What this adds (in plain English)
 
-1. **It can finally read a real history** — streams transcripts into tiny digests instead of loading multi-GB files into RAM.
-2. **Rejected advice stays rejected** — and accepted prefs aren’t silently overwritten by the regex on the next run.
-3. **It can surface recurring pain** — same class of “this error keeps showing up across sessions” findings our live system was good at (still counted by text pattern, not an LLM).
+1. **It can finally read a real history** — streams transcripts into tiny (~1 KB) digests instead of loading multi-GB files into RAM.
+2. **Rejected advice stays rejected** — and accepted prefs aren’t silently overwritten by the regex on the next run (`claimKey`).
+3. **It can surface recurring pain** — same class of “this error keeps showing up across sessions” findings our live system was good at (still counted by text pattern, not an LLM), windowed by `--max-sessions` (default 400).
 
-### Three CEO decisions
+### Three CEO decisions (resolved / tracked)
 
-1. **Untangle before merge?** Recommended **yes** if another agent still owns the deep-dive files; otherwise accept one commit but **must** strip `src/.tensor-grep/` (tool cache junk) and add gitignore.
-2. **Accept `.vscdb` gap until 1.0?** Documented; track as must-fix (BL-DRM-016).
+1. **Untangle before merge?** Done for main land; tensor-grep caches gitignored.
+2. **Accept `.vscdb` gap until 1.0?** Documented; still **OPEN** as must-fix (**BL-DRM-016**).
 3. **Parity wording:** now HITL + regex prefs + **windowed prevalence** — still not LLM / not all-history.
-
