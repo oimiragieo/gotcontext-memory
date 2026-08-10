@@ -278,6 +278,7 @@ export async function digestRoots(opts: {
   projectKey?: string;
   maxBytes?: number;
   maxSessions?: number;
+  concurrency?: number;
 }): Promise<DigestCorpusResult> {
   const files = await enumerateJsonl(opts.roots);
   const res: DigestCorpusResult = {
@@ -288,37 +289,77 @@ export async function digestRoots(opts: {
     truncated: 0,
     malformed: 0,
   };
-  for (const file of files) {
-    res.scanned += 1;
-    const projectKey = path.basename(path.dirname(file));
-    if (opts.projectKey && projectKey !== opts.projectKey) {
-      res.excluded_permission += 1;
-      continue;
+  // Bounded worker pool. Serial digestion of a real corpus (17k files) left the
+  // machine idle on I/O; unbounded Promise.all over 17k files is its own hazard.
+  const concurrency = Math.max(1, opts.concurrency ?? 8);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= files.length) return;
+      const file = files[i] as string;
+      res.scanned += 1;
+      const projectKey = path.basename(path.dirname(file));
+      if (opts.projectKey && projectKey !== opts.projectKey) {
+        res.excluded_permission += 1;
+        continue;
+      }
+      try {
+        const d = file.toLowerCase().endsWith(".vscdb")
+          ? await digestVscdbFile(file, { source: opts.source, projectKey })
+          : await digestTranscriptFile(file, {
+              source: opts.source,
+              projectKey,
+              maxBytes: opts.maxBytes,
+            });
+        if (d.truncated) res.truncated += 1;
+        res.malformed += d.malformed;
+        res.digests.push(d);
+        res.included += 1;
+      } catch {
+        // Unreadable file: counted, never fatal, and never conflated with truncation.
+        res.malformed += 1;
+      }
     }
-    try {
-      const d = file.toLowerCase().endsWith(".vscdb")
-        ? await digestVscdbFile(file, { source: opts.source, projectKey })
-        : await digestTranscriptFile(file, {
-            source: opts.source,
-            projectKey,
-            maxBytes: opts.maxBytes,
-          });
-      if (d.truncated) res.truncated += 1;
-      res.malformed += d.malformed;
-      res.digests.push(d);
-      res.included += 1;
-    } catch {
-      // Unreadable file: counted, never fatal, and never conflated with truncation.
-      res.malformed += 1;
-    }
-  }
-  // Newest sessions first BY SESSION CLOCK, then bound. Ordering by file mtime would
-  // make a rebuilt corpus look like it all happened at once.
-  res.digests.sort((a, b) => b.sessionTs - a.sessionTs);
-  if (opts.maxSessions != null && res.digests.length > opts.maxSessions) {
-    res.digests = res.digests.slice(0, opts.maxSessions);
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+  // Bound by STRATIFIED window, not newest-N — see selectDigests (L9). Ordered by
+  // session clock, never file mtime (a rebuild stamps mtime "now").
+  if (opts.maxSessions != null) {
+    res.digests = selectDigests(res.digests, opts.maxSessions);
+  } else {
+    res.digests.sort((a, b) => b.sessionTs - a.sessionTs);
   }
   return res;
+}
+
+/**
+ * Stratified window selection (L9, ported from the Python engine 2026-08-10).
+ * Newest-N silently collapses in calendar time as volume grows — on the reference
+ * workstation "newest 400" spanned under a day, so a twice-weekly pattern could
+ * never reach a prevalence threshold. Two thirds newest (recency dominates), the
+ * rest sampled evenly across older strata. Deterministic: no RNG.
+ */
+export function selectDigests(all: SessionDigest[], limit: number): SessionDigest[] {
+  const sorted = [...all].sort((a, b) => a.sessionTs - b.sessionTs);
+  if (sorted.length <= limit) return sorted;
+  const nRecent = Math.max(1, Math.floor((limit * 2) / 3));
+  const recent = sorted.slice(-nRecent);
+  const older = sorted.slice(0, sorted.length - nRecent);
+  const nOld = limit - nRecent;
+  const picked: SessionDigest[] = [];
+  if (nOld > 0 && older.length > 0) {
+    const step = older.length / nOld;
+    const seen = new Set<number>();
+    for (let i = 0; i < nOld; i++) {
+      const idx = Math.min(older.length - 1, Math.floor(i * step));
+      if (!seen.has(idx)) {
+        seen.add(idx);
+        picked.push(older[idx] as SessionDigest);
+      }
+    }
+  }
+  return [...picked, ...recent].sort((a, b) => a.sessionTs - b.sessionTs);
 }
 
 export type PrevalencePattern = {

@@ -34,6 +34,13 @@ export function proposalId(p: Omit<Proposal, "id" | "createdAt" | "expiresAt">):
   return createHash("sha256").update(material).digest("hex").slice(0, 16);
 }
 
+/** YAML-safe scalar: JSON string quoting is valid YAML and closes the injection/
+ * breakage hole of interpolating raw text after `description:` — an ordinary colon
+ * in a signal key ("eisdir: illegal operation…") made the whole note unparseable. */
+function yamlScalar(v: string): string {
+  return JSON.stringify(v);
+}
+
 /** Stable identity of a proposal's CLAIM, independent of base_hash.
  *
  * base_hash changes the moment the target exists, so it must not participate in
@@ -90,7 +97,7 @@ export function extractProposals(
       if (!pref) continue;
       const span = pref[1].trim();
       if (/\b(?:pong|ping)\b|\/health/i.test(span)) continue;
-      const body = `---\ntitle: Preference\ndescription: ${span.slice(0, 80)}\n---\n\n${span}\n`;
+      const body = `---\ntitle: Preference\ndescription: ${yamlScalar(span.slice(0, 80))}\n---\n\n${span}\n`;
       const targetPath = `memory/pref-${createHash("sha256")
         .update(span)
         .digest("hex")
@@ -203,7 +210,10 @@ export function proposalsFromPatterns(
       .join("\n");
     const body =
       `---\ntitle: Recurring ${pat.kind.replace(/_/g, " ")}\n` +
-      `description: seen in ${pat.k}/${pat.n} sessions — ${pat.key.slice(0, 60)}\n---\n\n` +
+      `description: ${yamlScalar(`seen in ${pat.k}/${pat.n} sessions — ${pat.key.slice(0, 60)}`)}\n` +
+      // createdAt makes the note self-dating for the efficacy loop even when the
+      // accepted-proposal archive is missing (exported store, hand-copied note).
+      `createdAt: ${new Date().toISOString()}\n---\n\n` +
       `**Pattern:** ${pat.key}\n\n` +
       `**Prevalence:** ${pat.k}/${pat.n} sessions (${pat.occurrences} occurrences)\n\n` +
       `**Sessions:** ${pat.sessions.join(", ")}\n\n` +
@@ -267,7 +277,7 @@ export async function runDreamFromDigests(
   for (const d of digests) {
     for (const pref of d.preferences) {
       const span = pref.span;
-      const body = `---\ntitle: Preference\ndescription: ${span.slice(0, 80)}\n---\n\n${span}\n`;
+      const body = `---\ntitle: Preference\ndescription: ${yamlScalar(span.slice(0, 80))}\n---\n\n${span}\n`;
       const targetPath = `memory/pref-${createHash("sha256")
         .update(span)
         .digest("hex")

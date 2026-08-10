@@ -11,6 +11,7 @@ import { type CorpusSourceName, defaultCorpusRoots } from "./corpus/roots.js";
 import { corpusScanLabel } from "./corpus/types.js";
 import { runDoctor } from "./doctor.js";
 import { digestRoots } from "./dream/digest.js";
+import { measureEfficacy } from "./dream/efficacy.js";
 import { runDreamFromDigests } from "./dream/run.js";
 import { fileExists } from "./hash.js";
 import { installFragments, uninstallFragments } from "./installer.js";
@@ -293,6 +294,49 @@ export function buildCli(): Command {
         console.error(
           `import NOT ok: ${r.rejected} rejected — ${JSON.stringify(r.reasons)}; see receipts/`,
         );
+        process.exitCode = 1;
+      }
+    });
+
+  program
+    .command("efficacy")
+    .description(
+      "Score accepted pattern-notes against sessions AFTER acceptance: RESOLVED / PERSISTING / INSUFFICIENT_DATA",
+    )
+    .option("--source <name>", "claude|codex|cursor|agy|opencode|all", "all")
+    .option("--scope <tier>", "user|project")
+    .option("--max-sessions <n>", "post-acceptance window per source", "400")
+    .action(async (opts) => {
+      const global = program.opts();
+      const store = await openStore(global.store ?? opts.scope);
+      const scope = (opts.scope ?? global.store ?? "user") as "user" | "project";
+      const sources = {
+        claude: claudeCorpus,
+        codex: codexCorpus,
+        cursor: cursorCorpus,
+        agy: agyCorpus,
+        opencode: opencodeCorpus,
+      } as const;
+      const selected =
+        opts.source === "all"
+          ? (Object.keys(sources) as CorpusSourceName[])
+          : ([opts.source] as CorpusSourceName[]).filter((k) => k in sources);
+      const digests = [];
+      for (const name of selected) {
+        const r = await digestRoots({
+          roots: defaultCorpusRoots(name),
+          source: name,
+          projectKey: scope === "project" ? path.basename(process.cwd()) : undefined,
+          maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+        });
+        digests.push(...r.digests);
+      }
+      const results = await measureEfficacy(store, digests);
+      console.log(JSON.stringify({ notes: results.length, results }, null, 2));
+      // PERSISTING notes are actionable (escalate, don't re-remember); UNPARSEABLE
+      // notes are damaged. Either makes the command exit non-zero so automation
+      // can gate on it — the same contract as import's ok flag.
+      if (results.some((r) => r.verdict === "PERSISTING" || r.verdict === "UNPARSEABLE_NOTE")) {
         process.exitCode = 1;
       }
     });

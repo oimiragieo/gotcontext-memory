@@ -30,12 +30,34 @@ What this is **not**:
 - **Not an LLM brain.** Patterns are clustered by normalised string key
   (`signalKey`), not by meaning. Two phrasings of the same underlying problem land in
   different buckets. Prevalence is *counted*, never inferred.
-- **Not all of history.** Prevalence is measured over the newest `--max-sessions`
-  per source (default **400**), not the whole corpus. The denominator in a proposal is
-  that window. Unbounded, a real 17,263-session corpus produced 386 proposals with
-  denominators like `16/17263` — technically true, practically meaningless, and far
-  more than a human will review.
+- **Not all of history.** Prevalence is measured over a `--max-sessions` window
+  (default **400**), not the whole corpus. Since 2026-08-10 the window is
+  **stratified** (`selectDigests`: two-thirds newest + evenly-sampled older strata,
+  ordered by session clock, deterministic), not newest-N — newest-N silently
+  collapsed in calendar time as volume grew, so a twice-weekly pattern could never
+  reach a prevalence threshold on a busy machine. Unbounded remains wrong in the
+  other direction: a real 17,263-session corpus produced 386 proposals with
+  denominators like `16/17263` — true, meaningless, unreviewable.
 - **Still no auto-supersede, still no scheduler.**
+
+### Efficacy: accepted notes are scored, not just stored (2026-08-10)
+
+`gotcontext-memory efficacy` closes the loop that distinguishes writing memory from
+learning. Each accepted pattern-note implicitly claims "remember this and it should
+stop happening"; efficacy re-counts that pattern over sessions AFTER acceptance
+(dated from the accepted-proposal archive, falling back to frontmatter `createdAt`)
+and renders: **RESOLVED** (zero recurrences in a sufficient window — expiry
+candidate), **PERSISTING** (still recurring — escalate to a hook/mechanism, do not
+re-remember; exits non-zero so automation can gate), **INSUFFICIENT_DATA** (fewer
+than 5 post-acceptance sessions — a thin window yields no verdict, ever), or
+**UNPARSEABLE_NOTE** (a damaged note is a finding, never a silent skip). Honesty
+limits: matching is by exact `signalKey`, so a rephrased failure scores as a
+different pattern; preference notes carry no machine signature and are not scored.
+
+Related fix, same date: note frontmatter is now emitted with a YAML-quoted
+`description` (`yamlScalar`). Previously an ordinary colon inside a signal key
+("eisdir: illegal operation…") produced a note whose frontmatter failed to parse —
+breaking the staleness sweep and anything else reading it.
 
 ### Corpus reading is streamed and bounded
 
