@@ -7,6 +7,7 @@ New here? Start with the docs hub — especially if you are learning the system:
 **→ [docs/README.md](docs/README.md)** (documentation map)  
 **→ [docs/START-HERE.md](docs/START-HERE.md)** (plain-language orientation)  
 **→ [docs/guides/quickstart.md](docs/guides/quickstart.md)** (install → init → dream)  
+**→ [docs/guides/rebuild-from-scratch.md](docs/guides/rebuild-from-scratch.md)** (junior rebuild path)  
 **→ [AGENTS.md](AGENTS.md)** · **[docs/SKILLS.md](docs/SKILLS.md)** (agents / skill registry)
 
 ### For agents
@@ -15,8 +16,9 @@ New here? Start with the docs hub — especially if you are learning the system:
 - [CLAUDE.md](CLAUDE.md) — same contract for Claude Code  
 - [docs/SKILLS.md](docs/SKILLS.md) — skill registry  
 - [docs/WORKFLOWS.md](docs/WORKFLOWS.md) — multi-lane doc/skill evolution  
-- [docs/LESSONS_2026-08-09.md](docs/LESSONS_2026-08-09.md) — L1–L20  
+- [docs/LESSONS_2026-08-09.md](docs/LESSONS_2026-08-09.md) — L1–L24  
 - [docs/HONESTY.md](docs/HONESTY.md) — claim boundaries  
+- [docs/features/efficacy.md](docs/features/efficacy.md) — post-accept scoring  
 
 ---
 
@@ -36,8 +38,7 @@ gotcontext-memory init          # ~/.gotcontext
 gotcontext-memory init --project
 gotcontext-memory dream --source claude --store user --force
 gotcontext-memory review list
-gotcontext-memory review show <id>
-gotcontext-memory review accept <id> --yes
+gotcontext-memory efficacy --source all
 gotcontext-memory doctor
 gotcontext-memory export --out /abs/path/out.gcm.gz
 gotcontext-memory mcp   # thin JSON-RPC memory tools (additive; not full MCP SDK)
@@ -82,7 +83,7 @@ Design history (plan / audits): [docs/superpowers/](docs/superpowers/).
 |---|---|---|
 | Claude Code | yes | full (incl. skill events when present) |
 | Codex | yes | full turns (tool/skill metadata often empty) |
-| Cursor | yes | JSONL digests for dream; `.vscdb` reader exists but **not** on digest path (BL-DRM-016) |
+| Cursor | yes | JSONL **and** `.vscdb` digests (BL-DRM-016 closed) |
 | agy | yes | PARTIAL |
 | OpenCode | yes | PARTIAL |
 

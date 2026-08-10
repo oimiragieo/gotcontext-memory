@@ -31,19 +31,31 @@ gcm dream --source <name> --store <tier> [--force] [--max-sessions 400]
    │
    ├─► openStore; refuse if !dream.enabled && !--force
    ├─► for each selected source:
-   │      digestRoots({ roots: defaultCorpusRoots(name), maxSessions, projectKey? })
-   │         stream *.jsonl → ~1 KB SessionDigest[]
-   │         truncated (byte ceiling) counted separately from malformed
-   │         newest maxSessions by session clock
+   │      digestRoots({ roots, maxSessions, concurrency≈8 })
+   │         *.jsonl streamed + *.vscdb via SQLite → SessionDigest[]
+   │         shared classifyText; truncated ≠ malformed
+   │         selectDigests = stratified window (≈2/3 newest + older strata)
    │
    └─► runDreamFromDigests(store, digests, counts)
-          prefs + minePrevalence (≥2 sessions)
+          prefs + minePrevalence (≥2 sessions); yamlScalar frontmatter
           claimKey suppress from proposals/rejected/
-          secret filter → commitOperational(proposals/<id>.json)*
+          secret filter → commitOperational(proposals/<id>.json)
           assert memoryTreeHash stable
 ```
 
-Note: digest path is `*.jsonl` only — Cursor `.vscdb` not consulted (BL-DRM-016).
+## Efficacy
+
+```text
+gcm efficacy --source <name> [--max-sessions 400]
+   │
+   ├─► digestRoots (same as dream)
+   └─► measureEfficacy(store, digests)
+          for each memory/pattern-*.md:
+            date from proposals/accepted/ (else frontmatter createdAt)
+            recount signalKey in sessions AFTER acceptance
+            verdict: RESOLVED | PERSISTING | INSUFFICIENT_DATA | UNPARSEABLE_NOTE
+          exit 1 if PERSISTING or UNPARSEABLE_NOTE
+```
 
 ---
 

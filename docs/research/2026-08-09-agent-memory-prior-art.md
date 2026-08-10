@@ -29,7 +29,7 @@
 - Decay-driven activation weights (Oblivion)  
 - Proactive memory-agent interventions  
 - Vector / graph memory maintenance  
-- Re-wiring `.vscdb` into digest path (BL-DRM-016 — scheduled, not philosophical defer)
+- Cursor `.vscdb` on digest path (BL-DRM-016 **closed** 2026-08-10) — keep watching for silent harness drops after scale fixes
 
 ## Skill mapping
 

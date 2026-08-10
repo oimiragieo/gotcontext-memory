@@ -1,8 +1,17 @@
 # Feature: Dream
 
 **Code:** `src/dream/digest.ts`, `src/dream/run.ts`, `src/dream/policy.ts`, `src/cli.ts`  
-**Tests:** `test/dream.test.ts`  
-**Concept:** [HITL dreaming](../concepts/hitl-dreaming.md) · [HONESTY](../HONESTY.md)
+**Tests:** `test/dream.test.ts`, `test/digest.test.ts`, `test/digest-vscdb.test.ts`, `test/digest-window.test.ts`, `test/dream-suppression.test.ts`  
+**Related:** [HITL dreaming](../concepts/hitl-dreaming.md) · [Efficacy](./efficacy.md) · [HONESTY](../HONESTY.md) · [Rebuild guide](../guides/rebuild-from-scratch.md)
+
+---
+
+## Plain English
+
+`dream` reads recent agent chat logs, turns them into small **digests**, looks for
+(1) “please remember…” preferences and (2) problems that show up in **many**
+sessions, and writes **proposal files**. It never edits durable memory by itself.
+A human runs `review accept` to promote a proposal.
 
 ---
 
@@ -18,85 +27,107 @@ gotcontext-memory dream --source claude|codex|cursor|agy|opencode|all \
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--source` | `all` | Which harness corpora to digest |
-| `--scope` / `--store` | user (unless project store present) | Store tier + optional `projectKey` filter |
+| `--source` | `all` | Which harness log folders to scan |
+| `--scope` / `--store` | user | Which store; project may filter by cwd name |
 | `--force` | off | Required when `dream.enabled` is false (the install default) |
-| `--max-sessions` | **400** | Newest sessions **per source** kept after digest (bounds heap **and** keeps prevalence denominators meaningful) |
+| `--max-sessions` | **400** | How many sessions **per source** enter the window after digesting |
 
-Stdout JSON includes:
+Stdout is JSON. Important fields: `proposals`, `patterns`, `suppressedRejected`,
+`truncated`, `malformed`, per-source `scanned` / `included`.
 
-`proposals`, `patterns`, `withheldSecrets`, `dropped`, `suppressedRejected`, `truncated`, `scanned`, `included`, `excluded_permission`, `sources: [{name,label,scanned,included,malformed,truncated}]`.
-
-On empty kept corpus: stderr `EMPTY_CORPUS — …` and exit code 1.
-
----
-
-## Two proposal signals (v0.9)
-
-Dreaming emits proposals from **two** signals. Both stay proposals-only / HITL.
-
-1. **Explicit preferences** — user/human text matching `please remember` / `from now on` (not bare `always`/`prefer`; health/pong/ping spans denied). Target: `memory/pref-<hash8>.md`.
-2. **Windowed prevalence** — recurring `tool_error` / `hook_block` / `user_correction` patterns across **≥2 distinct sessions** in the `--max-sessions` window. Target: `memory/pattern-<hash8>.md` with `k/n sessions`, occurrence count, session ids, and cited lines.
-
-Prevalence is **counted** via normalised `signalKey` (paths/hashes/digits collapsed) — not an LLM, not semantic merge.
+Exit **1** if dreaming is disabled without `--force`, or the kept corpus is empty
+(`EMPTY_CORPUS`).
 
 ---
 
-## Digests (streaming substrate)
+## Two proposal signals
 
-CLI dream does **not** load full `Transcript[]` into memory. It streams each `*.jsonl` into a ~**1 KB** `SessionDigest` (`digestTranscriptFile` / `digestRoots`):
+Both stay **proposals only** (HITL). Neither is an LLM.
 
-- Line-by-line read; peak memory ≈ one line + the digest array
-- Per-file byte ceiling (`DIGEST_MAX_BYTES` = 32 MiB): stop reading, set `truncated: true`, **keep counts already seen**
-- **`truncated` ≠ `malformed`** — size ceiling is a bounded read; JSON parse failures increment `malformed`
-- Sample arrays capped (`DIGEST_SIGNAL_CAP` = 60); **counts are never capped**
-- Digests sorted by **session clock** (turn timestamps; mtime fallback), then sliced to `--max-sessions`
+1. **Preferences** — user text matching `please remember` / `from now on`
+   (not bare `always`/`prefer`; pong/ping/`/health` denied).  
+   File: `memory/pref-<hash8>.md`.
+2. **Prevalence** — same kind of tool error / hook block / user correction in
+   **≥2 different sessions** inside the window.  
+   File: `memory/pattern-<hash8>.md` with `k/n sessions` and citations.
 
-Library path `runDream(store, transcripts, …)` still exists for fixtures/tests; production CLI uses `runDreamFromDigests`.
-
-**Known gap (BL-DRM-016):** digest enumeration is `*.jsonl` only → Cursor `.vscdb` is **not** consulted by CLI `dream` (still implemented in `cursorCorpus` for tests/tools). See [corpus-importers](./corpus-importers.md).
-
----
-
-## Pipeline (CLI / digest path)
-
-1. Gate on `dream.enabled` unless `--force`
-2. For each selected source: `digestRoots({ roots: defaultCorpusRoots(name), maxSessions, projectKey? })`
-3. `runDreamFromDigests(store, digests, counts)`
-4. Load `memory/**/*.md` hashes + **suppressed claim set** from `proposals/rejected/*.json`
-5. Extract preference proposals from digests; mine prevalence (`minSessions: 2`); skip preference-kind patterns (prefs already handled)
-6. Skip targets that already exist (accepted / human-edited memory stays put)
-7. Suppress by **`claimKey(targetPath, body)`** — independent of `base_hash` so rejects stay dead and ids don’t resurrect under a new hash
-8. Sort by **evidence strength** (then stable path/id); apply `maxProposals`
-9. Secret-scan + `commitOperational(proposals/<id>.json)`; assert `memoryTreeHash` unchanged
+Matching uses a normalised `signalKey` (paths/hashes/digits collapsed). Two
+different wordings of the same bug can land in different buckets — that is
+intentional honesty, not a bug.
 
 ---
 
-## claimKey suppression
+## Digests (how we survive multi-GB logs)
 
-`claimKey` = `targetPath::sha256(body)[0:16]`.
+We do **not** load whole transcripts into RAM.
 
-Without it, deterministic extraction re-emits byte-identical rejected claims forever, and a new `base_hash` after accept would let the same claim return under a new `proposalId`. Rejected archives feed `loadSuppressedClaims`; accepted prefs are skipped because the target already exists in store hashes.
+1. Walk harness roots for `*.jsonl` **and** Cursor `*.vscdb`.
+2. Stream each JSONL line-by-line into a ~1 KB `SessionDigest`.
+3. Read each `.vscdb` via the Cursor SQLite reader, then run the **same**
+   `classifyText` rules as JSONL (one brain, two file formats).
+4. Concurrent workers (default **8**) digest many files without serial I/O waits.
+5. Apply a **stratified** `--max-sessions` window (see below).
+6. Extract proposals from digests only.
 
-`suppressedRejected` in CLI JSON counts claims skipped this way.
+| Term | Meaning |
+|---|---|
+| `truncated` | Hit the per-file byte ceiling (32 MiB). Still a valid partial read. |
+| `malformed` | Parse / unreadable failure (bad JSON line, corrupt `.vscdb`). |
+| Counts vs samples | Sample arrays cap at 60; **counts keep growing**. |
+
+`.vscdb` stores are small; they are bounded by the SQLite query, not by the JSONL
+byte stream. An unreadable `.vscdb` increments `malformed` and does **not** crash dream.
 
 ---
 
-## Proposal id stability
+## Stratified window (not “newest 400”)
 
-`proposalId` hashes: `action`, `targetPath`, `base_hash`, `body`, evidence quotes.  
-`createdAt` / `expiresAt` are **not** part of the id material.  
-Do **not** use `proposalId` for resurrection suppression — use `claimKey`.
+**Problem:** On a busy machine, the newest 400 sessions can span less than a day.
+A twice-weekly pain never reaches “seen in ≥2 sessions” inside that day — so
+prevalence looks empty even when the bug is real.
+
+**Fix (`selectDigests`):** keep about **2/3 newest** sessions, plus older ones
+sampled evenly across older time. Sort by **session clock** (turn timestamps).
+Deterministic — no randomness.
+
+So `--max-sessions 400` means “about 400 sessions spanning recent *and* older
+strata,” not “the last 400 files by mtime.”
+
+---
+
+## Pipeline (step by step)
+
+1. Refuse unless `dream.enabled` or `--force`.
+2. For each source: `digestRoots` → stratified digests.
+3. Load current `memory/**` hashes + rejected `claimKey`s.
+4. Build preference + prevalence + staleness (`expire`) proposals.
+5. Skip preference targets that **already exist** (accepted / human-edited).
+6. Skip rejected claims via `claimKey(targetPath, body)` (independent of `base_hash`).
+7. Sort by **evidence length**, then stable path/id; apply `maxProposals`.
+8. Secret-scan; write `proposals/<id>.json` only; assert `memoryTreeHash` unchanged.
+
+Frontmatter `description` values are emitted with **YAML-safe quoting**
+(`yamlScalar`) so a colon inside a signal (e.g. `eisdir: illegal…`) cannot break
+the note. Pattern notes also get `createdAt` for the [efficacy](./efficacy.md) loop.
+
+---
+
+## claimKey vs proposalId
+
+| | `proposalId` | `claimKey` |
+|---|---|---|
+| Purpose | Name the staged proposal file | Stop rejected text from coming back |
+| Includes `base_hash`? | Yes (with other fields) | **No** |
+| Accepted prefs | n/a | Skipped because the **path already exists** in the store |
 
 ---
 
 ## What dream will not do (v0.9)
 
-- Call an LLM
-- Write `memory/` or `MEMORY.md`
-- Schedule itself
-- Auto-accept
-- Dream over unbounded history (windowed by `--max-sessions`)
-- Read Cursor `.vscdb` on the digest path (gap until BL-DRM-016)
+- Call an LLM  
+- Write `memory/` or `MEMORY.md`  
+- Schedule itself  
+- Auto-accept  
+- Score whether accepted notes helped — that is `efficacy`, not `dream`
 
-← [corpus](./corpus-importers.md) · Next → [review.md](./review.md)
+← [corpus](./corpus-importers.md) · Next → [review.md](./review.md) · [efficacy.md](./efficacy.md)

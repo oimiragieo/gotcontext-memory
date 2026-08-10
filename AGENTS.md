@@ -6,31 +6,31 @@ Instructions for any coding agent working in this repo.
 
 1. [`docs/HONESTY.md`](docs/HONESTY.md) — what we claim vs do not claim  
 2. [`docs/BACKLOG.md`](docs/BACKLOG.md) — **complete** open work list  
-3. [`docs/LESSONS_2026-08-09.md`](docs/LESSONS_2026-08-09.md) — load-bearing lessons **L1–L21**  
+3. [`docs/LESSONS_2026-08-09.md`](docs/LESSONS_2026-08-09.md) — load-bearing lessons **L1–L24**  
 4. [`docs/CEO_UPDATE_2026-08-09.md`](docs/CEO_UPDATE_2026-08-09.md) — last human brief  
 5. [`docs/SKILLS.md`](docs/SKILLS.md) — **skill registry** (load the matching skill before editing)  
 6. [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) — multi-lane evolution workflow  
+7. [`docs/guides/rebuild-from-scratch.md`](docs/guides/rebuild-from-scratch.md) — junior rebuild path  
 
 ## Skills (load by task)
 
 | Skill | Use when |
 |---|---|
 | `gotcontext-memory-hitl-honesty` | Dream/store/MCP/review/doctor; omega parity claims |
-| `gotcontext-memory-streaming-digests` | Multi-GB corpora, digests, truncated≠malformed, `.vscdb` gap |
-| `gotcontext-memory-claim-lifecycle` | Resurrection, prevalence window, evidence sort, preference FPs |
-| `transcript-dream-hitl` | **ABSENT on this host** (verified 2026-08-09) — named for contrast with omega LLM HITL; do not attempt to load |
+| `gotcontext-memory-streaming-digests` | Multi-GB corpora, digests, stratified window, `.vscdb`, concurrency |
+| `gotcontext-memory-claim-lifecycle` | Resurrection, prevalence, evidence sort, preference FPs |
+| `transcript-dream-hitl` | Omega/JARVIS contrast only if installed — **not** gotcontext parity |
 
-Scope (verified 2026-08-09): all three live at `.claude/skills/<name>/`; only `gotcontext-memory-hitl-honesty` is ALSO mirrored to `~/.claude/skills/`. The two companions are project-scoped by design — they are repo-specific and would dilute a 264-skill user library. Keep the mirrored copy byte-synced with the repo copy (see L18: two copies of one contract drift silently). Cursor rule: `.cursor/rules/gotcontext-memory.mdc`.
+Repo copies: `.claude/skills/<name>/` (+ `.cursor/skills/`). Mirror `hitl-honesty` to `~/.claude/skills/` when present. Cursor rule: `.cursor/rules/gotcontext-memory.mdc`.
 
 ## Non-negotiables
 
 - Canonical memory writes only via HITL `review accept` (or conscious `mcp.allowCommit: true`).
 - Dream writes **proposals only**; never auto-apply; no scheduler in v0.9.
-- Dream substrate = **streaming digests** (`src/dream/digest.ts`); never accumulate full multi-GB transcripts.
+- Dream substrate = **streaming digests** (`src/dream/digest.ts`); stratified `--max-sessions`; concurrent workers; Cursor `.vscdb` **on** the digest path (BL-DRM-016 closed).
 - No resurrection: rejected claims via `claimKey` (`proposals/rejected/`); accepted prefs skipped when the target path already exists in the store.
-- Prevalence is **windowed** (`--max-sessions`, default 400); sort `maxProposals` by evidence strength.
+- After accept, use `gotcontext-memory efficacy` to score pattern notes (does not auto-edit memory).
 - Do **not** claim parity with omega `memory_dream` or full LLM `transcript_dream`.
-- Known gap **BL-DRM-016**: Cursor `.vscdb` not on digest dream path until fixed.
 - Version stays **0.9.0** until CEO publish gate.
 - Sole store-root mutations: `MemoryStore` in `src/store.ts` (AST guard in tests).
 - Prefer `tg` over raw grep for symbol/impact work when available.
@@ -52,7 +52,8 @@ Docker dogfood (Windows host): `npm run verify:docker` — CLI dream needs `--fo
 - Locks: always `locks/<sha256(rel)>.lock` (L3).  
 - Accept: regenerate `MEMORY.md` **under** lock (L4); concurrent process test (L8).  
 - MCP: `memory_read` = MEMORY.md|memory/** only; commit default-off (L5).  
-- Digests: truncated ≠ malformed (L15); document harness regressions in HONESTY (L18).  
+- Digests: truncated ≠ malformed (L15); stratified window (L22); `.vscdb` on path (L18 closed).  
+- Efficacy: &lt;5 post-accept sessions → INSUFFICIENT_DATA only (L23).  
 - Tests: no inert both-arms-pass (L1, L2).
 
 ## Do not

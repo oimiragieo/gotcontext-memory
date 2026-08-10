@@ -4,7 +4,7 @@ Plain English. No jargon required.
 
 ## Bottom line
 
-We audited the package hard, **fixed the dangerous bugs**, landed **streaming digests + windowed prevalence** on main, and proved tests still pass (**85 green**). Merge tip: **`6ecf0c9`**. It is still **0.9.0** — not “done / 1.0” until you say ship. It is **not** the same as last night’s JARVIS/omega dream on your PC (that one uses an LLM and staged a bunch of “pong” junk).
+We audited the package hard, **fixed the dangerous bugs**, landed **streaming digests + stratified prevalence + efficacy**, and keep tests green (**105+**). Tip of main includes `beda78e` era work. It is still **0.9.0** — not “done / 1.0” until you say ship. It is **not** the same as JARVIS/omega LLM dream (that one uses an LLM).
 
 ---
 
@@ -16,7 +16,7 @@ We audited the package hard, **fixed the dangerous bugs**, landed **streaming di
 4. **Preference spam filter:** bare “always/prefer” and health-check “pong” text no longer become proposals.
 5. **Docker dogfood** still works if you pass `--force` when `dream.enabled` is false (default).
 6. **Repo is public MIT** with CI on three OSes (from earlier work this weekend).
-7. **Digest / prevalence MERGED on main (`6ecf0c9`):** streams multi-GB corpora into ~1 KB digests; two dream signals (prefs + windowed prevalence); `claimKey` stops rejected/accepted resurrection; `--max-sessions` default 400.
+7. **Digest / prevalence / efficacy on main:** streams multi-GB corpora; Cursor `.vscdb` on digest path; stratified `--max-sessions`; `efficacy` scores accepted pattern notes.
 
 ---
 
@@ -26,7 +26,7 @@ We audited the package hard, **fixed the dangerous bugs**, landed **streaming di
 - PC **memory_dream** (auto consolidator) **did not run** (last run ~Jul 23).
 - Thinktank `tt_quick` **infra failed** this session; we used a 3-agent fallback instead. Seats themselves smoke-tested OK.
 - **Exa** was not available (no MCP / no API key) — used web search for competitor/security freshness.
-- **Cursor `.vscdb` gap (BL-DRM-016):** digest dream reads `*.jsonl` only — SQLite Cursor sessions are not dreamed until that is re-wired (pre-1.0 must-fix).
+- **Cursor `.vscdb`:** was a temporary gap after the OOM digest work; **closed 2026-08-10** (JSONL + `.vscdb` on the same dream path).
 
 ---
 
@@ -37,7 +37,7 @@ Canonical list: [`docs/BACKLOG.md`](./BACKLOG.md). Summary buckets:
 | Bucket | Examples |
 |---|---|
 | **Ship / release** | CEO go for `1.0.0`; reconcile stale plan checkboxes |
-| **Dream quality** | LLM reviewer parity with omega; richer lenses (contradict/supersede); filter health transcripts at PC omega; **re-wire `.vscdb` (BL-DRM-016)** |
+| **Dream quality** | LLM reviewer parity with omega; richer lenses; filter health transcripts at PC omega; efficacy already shipped |
 | **Corpus** | Real agy + OpenCode parsers (still PARTIAL stubs) |
 | **Portability / install** | Export installer-manifest; proposal round-trip; uninstall harden |
 | **Security follow-ups** | Import allowlist trust; gunzip size caps; path TOCTOU/symlink harden |
@@ -93,5 +93,20 @@ Retained in: this doc, `BACKLOG.md`, `LESSONS_*.md`, `AGENTS.md`, Cursor rule, s
 ### Three CEO decisions (resolved / tracked)
 
 1. **Untangle before merge?** Done for main land; tensor-grep caches gitignored.
-2. **Accept `.vscdb` gap until 1.0?** Documented; still **OPEN** as must-fix (**BL-DRM-016**).
-3. **Parity wording:** now HITL + regex prefs + **windowed prevalence** — still not LLM / not all-history.
+2. **Accept `.vscdb` gap until 1.0?** **Closed 2026-08-10** — Cursor `.vscdb` is on the digest path again (BL-DRM-016).
+3. **Parity wording:** HITL + regex prefs + **stratified** windowed prevalence — still not LLM / not all-history.
+
+---
+
+## Addendum — efficacy + stratified window + YAML-safe notes (2026-08-10)
+
+**Status:** on main (`b9e5158` / `beda78e`). **Tests:** 105+ green.
+
+### Plain English
+
+1. **Efficacy** — after you accept a pattern note, `gotcontext-memory efficacy` asks “did it stop?” (`RESOLVED` / `PERSISTING` / `INSUFFICIENT_DATA` / `UNPARSEABLE_NOTE`). It does not auto-delete notes.
+2. **Stratified window** — `--max-sessions` is no longer “newest N only” (that collapsed to under a day on busy machines). It keeps recent sessions **and** samples older ones.
+3. **Faster digests** — concurrent workers (default 8); modest I/O-bound speedup.
+4. **Safer notes** — YAML-quoted frontmatter so colons in error text cannot break the file.
+
+Junior rebuild path: [`guides/rebuild-from-scratch.md`](./guides/rebuild-from-scratch.md).

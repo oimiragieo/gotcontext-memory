@@ -4,21 +4,21 @@ Cross-session pointer for agents in this repo.
 
 - **CEO brief:** [docs/CEO_UPDATE_2026-08-09.md](../docs/CEO_UPDATE_2026-08-09.md)
 - **Full backlog:** [docs/BACKLOG.md](../docs/BACKLOG.md)
-- **Lessons L1–L21:** [docs/LESSONS_2026-08-09.md](../docs/LESSONS_2026-08-09.md)
+- **Lessons L1–L24:** [docs/LESSONS_2026-08-09.md](../docs/LESSONS_2026-08-09.md)
 - **Skill registry:** [docs/SKILLS.md](../docs/SKILLS.md)
+- **Junior rebuild:** [docs/guides/rebuild-from-scratch.md](../docs/guides/rebuild-from-scratch.md)
 - **Workflows:** [docs/WORKFLOWS.md](../docs/WORKFLOWS.md)
-- **Prior art:** [docs/research/2026-08-09-agent-memory-prior-art.md](../docs/research/2026-08-09-agent-memory-prior-art.md)
-- **Audit register:** [docs/audits/2026-08-09-gotcontext-memory-deep-dive.md](../docs/audits/2026-08-09-gotcontext-memory-deep-dive.md)
 - **Honesty:** [docs/HONESTY.md](../docs/HONESTY.md)
+- **Efficacy:** [docs/features/efficacy.md](../docs/features/efficacy.md)
 
 ## Skills
 
 - `gotcontext-memory-hitl-honesty`
 - `gotcontext-memory-streaming-digests`
 - `gotcontext-memory-claim-lifecycle`
-- Sibling (omega): `transcript-dream-hitl`
 
 ## Current product shape (0.9.0)
 
-Streaming digests + anchored prefs + windowed prevalence → proposals → HITL accept.  
-Merged main tip post-digest: `6ecf0c9`. Open must-fix: **BL-DRM-016** (`.vscdb`).
+Streaming digests (JSONL + Cursor `.vscdb`) → stratified window → prefs + prevalence →
+HITL accept → optional **efficacy** scoring. BL-DRM-016 closed. Main includes
+`b9e5158` / `beda78e` era features.

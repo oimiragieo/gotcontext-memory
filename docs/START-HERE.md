@@ -1,127 +1,112 @@
 # Start here
 
-**Audience:** junior analysts, new contributors, anyone who has never seen a
-“memory + dreaming” package for coding agents.
-
-**Related:** [Documentation hub](./README.md) · [Glossary](./glossary.md) ·
-[Honesty](./HONESTY.md) · [Skills](./SKILLS.md) ·
-[Lessons L1–L20](./LESSONS_2026-08-09.md)
+**Audience:** junior analysts, new contributors, anyone rebuilding the system.  
+**Related:** [Documentation hub](./README.md) · [Rebuild from scratch](./guides/rebuild-from-scratch.md) ·
+[Honesty](./HONESTY.md) · [Skills](./SKILLS.md) · [Lessons](./LESSONS_2026-08-09.md)
 
 ---
 
 ## One-sentence product
 
 Gotcontext Memory is a **local markdown memory folder** plus a **human-in-the-loop
-(HITL) dreaming loop** that turns agent chat transcripts into *proposals* a human
-must accept before anything becomes durable memory.
+dreaming loop** that turns agent chat logs into *proposals* a human must accept —
+and an **efficacy** check that asks whether accepted pattern notes actually helped.
 
 ---
 
 ## The problem it solves
 
-Coding agents (Claude Code, Codex, Cursor, etc.) forget across sessions unless
-someone maintains notes. Teams want:
+Coding agents forget across sessions. Teams want:
 
-1. A **shared, inspectable** memory format (plain markdown files — not a opaque DB).
-2. Agents that **propose** lasting facts from transcripts — without silently rewriting
-   memory behind a human’s back.
-3. The same story across **multiple harnesses**, without depending on omega-jarvis,
-   Telegram, or a cloud sync service.
-
-This package is that story, as a Node CLI (`gotcontext-memory` / optional `gcm`).
+1. Inspectable markdown memory (not an opaque cloud DB).
+2. Agents that **propose** lasting facts — never silently rewrite memory.
+3. The same story across Claude / Codex / Cursor / agy / OpenCode.
 
 ---
 
 ## What it is *not*
 
-Read [HONESTY.md](./HONESTY.md) before demos. Short version:
-
-| Claim people might assume | Reality in v0.9 |
+| People assume | Reality in v0.9 |
 |---|---|
-| Auto-applies dream findings to memory | **No** — human `review accept` required |
-| Full omega `memory_dream` parity | **No** — HITL + regex prefs + **windowed prevalence** (not LLM) |
-| Dreams all of history | **No** — `--max-sessions` window (default 400) |
-| MCP can rewrite memory freely | **No** — `mcp.allowCommit` default **off** |
-| Cloud sync / team org tier | **No** |
-| Daemon that dreams on a schedule | **No** in v1 (and config forbids schedule keys) |
-| Full MCP SDK server | **No** — thin JSON-RPC “MCP-like” tools |
+| Auto-applies dream findings | **No** — human `review accept` |
+| Full omega LLM dream | **No** — regex prefs + counted prevalence |
+| Dreams all of history | **No** — stratified `--max-sessions` (default 400) |
+| MCP rewrites memory freely | **No** — `mcp.allowCommit` default off |
+| Daemon / scheduler | **No** |
+| Efficacy auto-deletes notes | **No** — reports verdicts only |
+
+Full claim list: [HONESTY.md](./HONESTY.md).
 
 ---
 
 ## The loop (memorize this)
 
 ```text
-  transcripts on disk (*.jsonl)
+  transcripts (*.jsonl + Cursor *.vscdb)
          │
          ▼
-   digestRoots       ──► ~1 KB SessionDigest[]  (streamed; truncated ≠ malformed)
-         │
+   digestRoots       ──► SessionDigest[]  (streamed/concurrent; stratified window)
+         │                  truncated ≠ malformed
          ▼
-   gcm dream         ──► proposals/*.json   (prefs + prevalence; operational only)
-         │                  memoryTreeHash UNCHANGED
+   dream             ──► proposals/*.json   (prefs + prevalence; memory unchanged)
+         │
          ▼
    human review
-     ├─ reject  ──► proposals/rejected/   (claimKey suppresses resurrection)
-     └─ accept  ──► commitCanonical(target) + MEMORY.md
+     ├─ reject  ──► proposals/rejected/   (claimKey blocks resurrection)
+     └─ accept  ──► memory/*.md + MEMORY.md (+ proposals/accepted/)
                          │
                          ▼
-                   durable memory/*.md
+                   efficacy   ──► RESOLVED / PERSISTING / INSUFFICIENT_DATA / …
 ```
 
-If you remember only one thing: **dream never writes canonical memory;
-accept does.**
+**Dream never writes canonical memory; accept does. Efficacy never writes memory either.**
 
-Default install has `dream.enabled: false` — pass `--force` (or flip the flag)
-to run dream. Deep dive: [concepts/hitl-dreaming.md](./concepts/hitl-dreaming.md).
-
----
-
-## Where data lives
-
-| Tier | Default path | When |
-|---|---|---|
-| User | `~/.gotcontext/` | Normal personal install |
-| Project | `<cwd>/.gotcontext/` | `init --project` |
-
-Inside either root you will see `MEMORY.md`, `memory/`, `proposals/`,
-`revisions/`, `receipts/`, `config.json`, and (after install) `installer-manifest.json`.
-
-Deep dive: [concepts/store-layout.md](./concepts/store-layout.md).
+Default install: `dream.enabled: false` → pass `--force` (or flip the flag).
 
 ---
 
 ## Commands you will use most
 
 ```bash
-gotcontext-memory init                 # create store + adapter fragments
-gotcontext-memory dream --source claude --force   # --force when dream.enabled is false
+gotcontext-memory init
+gotcontext-memory dream --source all --force --max-sessions 400
 gotcontext-memory review list
-gotcontext-memory review show <id>
 gotcontext-memory review accept <id> --yes
+gotcontext-memory efficacy --source all
 gotcontext-memory doctor
 ```
 
-Full CLI: [reference/cli.md](./reference/cli.md).  
-Hands-on: [guides/quickstart.md](./guides/quickstart.md).  
-Agent skills: [SKILLS.md](./SKILLS.md) · retain lessons **L15–L20** in [LESSONS](./LESSONS_2026-08-09.md).
+Hands-on: [quickstart](./guides/quickstart.md) · [rebuild guide](./guides/rebuild-from-scratch.md) ·
+[first walkthrough](./guides/first-dream-walkthrough.md).
 
 ---
 
-## Source code orientation (30 seconds)
+## Where data lives
 
-| Concern | Primary file(s) |
+| Tier | Path |
 |---|---|
-| Sole writer / CAS | `src/store.ts` |
-| CLI entry | `src/cli.ts` |
-| Dream digests + extraction | `src/dream/digest.ts`, `src/dream/run.ts` |
-| Human accept/reject | `src/review.ts` |
-| Transcript parsers | `src/corpus/*` |
-| Adapter install | `src/installer.ts`, `src/adapters/types.ts` |
+| User | `~/.gotcontext/` |
+| Project | `<cwd>/.gotcontext/` (`init --project`) |
 
-Full map: [architecture/module-map.md](./architecture/module-map.md).
+Inside: `MEMORY.md`, `memory/`, `proposals/`, `revisions/`, `receipts/`, `config.json`.
+
+---
+
+## Source map (30 seconds)
+
+| Concern | File(s) |
+|---|---|
+| Digests, window, `.vscdb`, concurrency | `src/dream/digest.ts` |
+| Prefs / prevalence / claimKey | `src/dream/run.ts` |
+| Efficacy | `src/dream/efficacy.ts` |
+| Accept / locks | `src/review.ts` |
+| Sole store writer | `src/store.ts` |
+| CLI | `src/cli.ts` |
 
 ---
 
 ## Suggested next read
 
-→ [concepts/mental-model.md](./concepts/mental-model.md)
+→ [guides/rebuild-from-scratch.md](./guides/rebuild-from-scratch.md)  
+→ [concepts/mental-model.md](./concepts/mental-model.md)  
+→ [features/dream.md](./features/dream.md) · [features/efficacy.md](./features/efficacy.md)

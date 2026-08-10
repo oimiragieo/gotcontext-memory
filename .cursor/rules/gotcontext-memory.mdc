@@ -1,20 +1,17 @@
 ---
-description: gotcontext-memory HITL honesty, digests/prevalence, lock/index races, MCP default-off
+description: gotcontext-memory HITL honesty, digests/prevalence/efficacy, lock/index races, MCP default-off
 alwaysApply: true
 ---
 
 # gotcontext-memory (always)
 
-Before changing dream/store/MCP/review:
+Before changing dream/store/MCP/review/efficacy:
 
-1. Read `docs/HONESTY.md`, `docs/BACKLOG.md`, `docs/LESSONS_2026-08-09.md` (L1–L21), `docs/SKILLS.md`.
+1. Read `docs/HONESTY.md`, `docs/BACKLOG.md`, `docs/LESSONS_2026-08-09.md` (L1–L24), `docs/SKILLS.md`, `docs/guides/rebuild-from-scratch.md`.
 2. Load the matching skill: HITL → `gotcontext-memory-hitl-honesty`; scale → `gotcontext-memory-streaming-digests`; resurrection/prevalence → `gotcontext-memory-claim-lifecycle`.
-3. Canonical memory = HITL accept only unless `mcp.allowCommit: true` (conscious non-HITL).
-4. Dream = streaming digests + prefs + windowed prevalence; proposals only; `--max-sessions` default 400.
-5. Locks always `locks/<sha256(rel)>.lock`; accept regenerates `MEMORY.md` under lock (multi-process tests).
-6. No bare `always`/`prefer`; deny pong/ping/health. Rejected → `claimKey`; accepted prefs → skip if path exists.
-7. Doctor caps must fail when over — detect≠enforce.
-8. Do not claim omega `memory_dream` / LLM `transcript_dream` parity. BL-DRM-016 (`.vscdb`) is open.
-9. Version 0.9.0 until CEO publish gate. Prefer `tg` for symbol audits.
-10. Verify: `npm test && npm run lint && npm run build`. Dream CLI: `dream.enabled` or `--force`.
-11. Research: Exa/`use-exa` if available; else label WebSearch (L13). Stage only your paths.
+3. Canonical memory = HITL accept only unless `mcp.allowCommit: true`.
+4. Dream = streaming digests (JSONL + `.vscdb`) + stratified `--max-sessions` + prefs/prevalence; proposals only.
+5. After accept: `efficacy` scores pattern notes; does not auto-edit memory.
+6. Locks always `locks/<sha256(rel)>.lock`; accept regenerates `MEMORY.md` under lock.
+7. Rejected → `claimKey`; accepted prefs → skip if path exists. Prefer anchors only.
+8. Version 0.9.0 until CEO gate. Prefer `tg`. Verify: `npm test && npm run lint && npm run build`.

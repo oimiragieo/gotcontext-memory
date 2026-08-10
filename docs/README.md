@@ -21,8 +21,10 @@ navigable.
 | 7 | [HONESTY.md](./HONESTY.md) | Claim boundaries (read before demos or PRs) |
 | 8 | [BACKLOG.md](./BACKLOG.md) | Complete open work list |
 | 9 | [CEO_UPDATE_2026-08-09.md](./CEO_UPDATE_2026-08-09.md) | Latest human brief |
-| 10 | [LESSONS_2026-08-09.md](./LESSONS_2026-08-09.md) | Lessons L1–L20 to retain (esp. **L15–L20** digests / claimKey / `.vscdb`) |
-| 11 | [SKILLS.md](./SKILLS.md) | Which agent skills to load for dream / store / MCP work |
+| 10 | [LESSONS_2026-08-09.md](./LESSONS_2026-08-09.md) | Lessons L1–L24 (digests, stratified window, efficacy, YAML) |
+| 11 | [SKILLS.md](./SKILLS.md) | Which agent skills to load |
+| 12 | [guides/rebuild-from-scratch.md](./guides/rebuild-from-scratch.md) | Junior rebuild / verify checklist |
+| 13 | [features/efficacy.md](./features/efficacy.md) | Score accepted pattern notes |
 
 ---
 

@@ -45,17 +45,34 @@ gotcontext-memory dream \
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--source` | `all` | Harness corpora to digest |
-| `--scope` | (store tier) | Scope / optional projectKey filter |
-| `--force` | off | Run even when `dream.enabled` is false (install default) |
-| `--max-sessions` | `400` | Newest sessions **per source** after digest |
+| `--source` | `all` | Which harness logs to digest |
+| `--scope` | (store tier) | Store / optional projectKey filter |
+| `--force` | off | Run when `dream.enabled` is false |
+| `--max-sessions` | `400` | Stratified window size **per source** (≈2/3 newest + older strata) |
 
-Streams `*.jsonl` into ~1 KB digests, then emits preference + windowed-prevalence
-proposals. See [dream.md](../features/dream.md).
+Digests `*.jsonl` and Cursor `*.vscdb` concurrently, then emits preference +
+prevalence proposals. See [dream.md](../features/dream.md).
 
-Stdout includes `patterns`, `suppressedRejected`, `truncated` (≠ malformed), and
-per-source summaries. Exit 1 on `EMPTY_CORPUS` or when dreaming is disabled
-without `--force`.
+Stdout includes `patterns`, `suppressedRejected`, `truncated` (≠ `malformed`).
+Exit 1 on `EMPTY_CORPUS` or dreaming disabled without `--force`.
+
+---
+
+## `efficacy`
+
+```bash
+gotcontext-memory efficacy \
+  [--source claude|codex|cursor|agy|opencode|all] \
+  [--scope user|project] \
+  [--store user|project] \
+  [--max-sessions 400]
+```
+
+Scores accepted `memory/pattern-*.md` notes against sessions **after** acceptance.
+Verdicts: `RESOLVED` · `PERSISTING` · `INSUFFICIENT_DATA` · `UNPARSEABLE_NOTE`.
+
+Exit **1** if any note is `PERSISTING` or `UNPARSEABLE_NOTE`.  
+See [efficacy.md](../features/efficacy.md).
 
 ---
 

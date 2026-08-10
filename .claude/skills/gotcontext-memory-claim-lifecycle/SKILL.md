@@ -26,8 +26,8 @@ Companion to `gotcontext-memory-hitl-honesty` and `gotcontext-memory-streaming-d
    Red tests in `test/dream-suppression.test.ts`.
 2. **`claimKey` ≠ `proposalId`** — proposal id may include `base_hash` / evidence material;
    rejected-claim suppression must not, or CAS drift re-stages the same advice forever.
-3. **Window prevalence** — CLI `--max-sessions` (default **400**) per source; report k/n
-   against that window only (`src/cli.ts`, `digestRoots`).
+3. **Window prevalence** — CLI `--max-sessions` (default **400**) per source via **stratified**
+   `selectDigests` (≈2/3 newest + older strata); report k/n against that window only.
 4. **Sort by evidence strength** — before `maxProposals` slice: `evidence.length` desc,
    then path/id. Never order survivors by sha256 id prefix.
 5. **Preference FP hose** — anchors `please remember` | `from now on` only; deny

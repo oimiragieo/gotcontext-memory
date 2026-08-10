@@ -57,13 +57,11 @@ a file fails parse after being selected).
 - Also accepts Claude-shaped migration lines
 - Tool/skill arrays usually empty in fixtures (documented in HONESTY)
 
-### Cursor (`cursor.ts`) — FULL turns in library; **digest dream gap**
+### Cursor (`cursor.ts`) — FULL for dream digests
 
-1. `*.jsonl` like siblings — **used by CLI dream digests**
-2. `*.vscdb` / `state.vscdb` via read-only `node:sqlite` reading `ItemTable` —
-   **still implemented in `cursorCorpus.scan`**, but CLI `dream` calls
-   `digestRoots` which enumerates **`*.jsonl` only**. Cursor SQLite sessions are
-   therefore **not** dreamed today (**BL-DRM-016**, pre-1.0 must-fix).
+1. `*.jsonl` — streamed digests like siblings  
+2. `*.vscdb` / `state.vscdb` — read-only `node:sqlite` (`ItemTable`), then shared
+   `classifyText` (**BL-DRM-016 closed 2026-08-10**). Unreadable `.vscdb` → `malformed`, not fatal.
 
 ### agy / OpenCode — PARTIAL
 

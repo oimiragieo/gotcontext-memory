@@ -52,8 +52,10 @@ Parity target = **HITL shape only**, not LLM brain or auto-supersede.
     itself an anti-pattern).
 13. **Prevalence window** — `--max-sessions` (default 400); sort by evidence strength.
 14. **Dirty-tree commits** — stage only your paths; strip `.tensor-grep/` before merge.
-15. **Cursor `.vscdb`** — digest path currently skips it; must re-wire before 1.0.0 (BL-DRM-016).
-16. **Secret fixtures** — never commit contiguous live-shaped tokens; split strings for scanners (push protection).
+15. **Cursor `.vscdb`** — on the digest path with shared `classifyText` (BL-DRM-016 closed 2026-08-10).  
+16. **Secret fixtures** — never commit contiguous live-shaped tokens; split strings for scanners.  
+17. **Stratified window** — not newest-N alone (`selectDigests`).  
+18. **Efficacy** — score accepted patterns; thin windows → INSUFFICIENT_DATA only.
 
 ## Authority
 

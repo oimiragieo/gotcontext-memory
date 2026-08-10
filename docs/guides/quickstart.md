@@ -98,4 +98,6 @@ gotcontext-memory uninstall --store user
 
 Restores pre-images from the installer manifest.
 
-Next → [first-dream-walkthrough.md](./first-dream-walkthrough.md)
+Next → [first-dream-walkthrough.md](./first-dream-walkthrough.md) ·
+[rebuild-from-scratch.md](./rebuild-from-scratch.md) ·
+[efficacy.md](../features/efficacy.md) (after you have accepted pattern notes)

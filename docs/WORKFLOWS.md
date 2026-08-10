@@ -30,4 +30,4 @@ The workspace skill **`authoring-dynamic-workflows`** is the usual fan-out autho
 
 ## Hot contract reminder
 
-Digests · `claimKey` · `--max-sessions` · `mcp.allowCommit` · **BL-DRM-016** · prefer `tg` · Exa or labeled WebSearch (L13).
+Digests (JSONL+`.vscdb`) · stratified `--max-sessions` · `claimKey` · `efficacy` · `mcp.allowCommit` · prefer `tg` · Exa or labeled WebSearch (L13).

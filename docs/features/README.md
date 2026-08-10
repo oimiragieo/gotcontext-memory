@@ -10,7 +10,8 @@ first if these names are unfamiliar.
 | [memory-index.md](./memory-index.md) | `MEMORY.md` regeneration + caps |
 | [config-and-tiers.md](./config-and-tiers.md) | `user`/`project` + `config.json` |
 | [corpus-importers.md](./corpus-importers.md) | Transcript scanners |
-| [dream.md](./dream.md) | Proposal generation |
+| [dream.md](./dream.md) | Proposal generation (digests, stratified window) |
+| [efficacy.md](./efficacy.md) | Score accepted pattern notes after the fact |
 | [review.md](./review.md) | HITL accept/reject |
 | [installer-adapters.md](./installer-adapters.md) | Managed harness fragments |
 | [doctor.md](./doctor.md) | Read-only diagnostics |

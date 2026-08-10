@@ -21,27 +21,28 @@ It does **not** mean automatic fact reconciliation or silent apply
 
 ### Stage A — Corpus digests (CLI)
 
-CLI `dream` walks default harness roots (`defaultCorpusRoots`) and streams every
-`*.jsonl` into a ~1 KB `SessionDigest` (`digestRoots`). Peak memory is one line
-plus the digest array — never whole transcripts / never the full corpus.
+CLI `dream` walks default harness roots (`defaultCorpusRoots`) and digests every
+`*.jsonl` **and** Cursor `*.vscdb` into a `SessionDigest` (`digestRoots`, concurrent
+workers). JSONL is streamed line-by-line; `.vscdb` uses the SQLite reader then the
+**same** `classifyText` rules. Peak memory stays bounded — never whole multi-GB files.
 
 | Source | Dream path status |
 |---|---|
 | Claude Code | FULL — `*.jsonl` digests |
 | Codex | FULL — `*.jsonl` digests |
-| Cursor | JSONL digests only. **`.vscdb` gap:** `cursorCorpus` still has a read-only `node:sqlite` reader for tests/tools, but digest enumeration is `*.jsonl` only, so CLI dream **does not** consult `.vscdb` (BL-DRM-016, pre-1.0 must-fix). |
-| agy / OpenCode | PARTIAL importers remain; dream still digests any `*.jsonl` under their default roots |
+| Cursor | FULL for dream — `*.jsonl` **and** `*.vscdb` (BL-DRM-016 closed 2026-08-10) |
+| agy / OpenCode | PARTIAL importers; dream still digests `*.jsonl` under default roots |
 
 Details: [corpus-importers.md](../features/corpus-importers.md),
 [transcript-formats.md](../adapters/transcript-formats.md).
 
-`truncated` (byte ceiling) is reported separately from `malformed` (parse failure).
+`truncated` (byte ceiling) is reported separately from `malformed` (parse / unreadable).
 
-### Stage B — Window + empty check
+### Stage B — Stratified window + empty check
 
-Newest `--max-sessions` digests per source (default **400**), ordered by session
-clock. Empty digest set → `EMPTY_CORPUS` (nonzero exit). Zero is labeled, never a
-silent “clean” success.
+`--max-sessions` (default **400**) selects a **stratified** set: about two-thirds
+newest sessions plus evenly sampled older ones (`selectDigests`), ordered by session
+clock. Empty digest set → `EMPTY_CORPUS` (nonzero exit).
 
 (Library `runDream` still applies `applyDreamPolicy` on full transcripts for
 fixtures; CLI production path is `runDreamFromDigests`.)
