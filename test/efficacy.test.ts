@@ -53,7 +53,7 @@ async function storeWithPatternNote(kind: string, key: string, acceptedAtIso: st
     `**Pattern:** ${key}\n\n**Prevalence:** 3/10 sessions (4 occurrences)\n\n` +
     `**Sessions:** a, b, c\n\n**Evidence:**\n- a line 4: ${key}\n`;
   await store.commitCanonical({
-    relativePath: `memory/pattern-deadbeef.md`,
+    relativePath: "memory/pattern-deadbeef.md",
     body,
     baseHash: BASE_ABSENT,
     provenance: { authored_by: "human" },
