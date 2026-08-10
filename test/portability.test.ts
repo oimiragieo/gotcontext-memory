@@ -59,3 +59,64 @@ describe("portability", () => {
     await expect(importStore(store, "rel.gcm.gz", "merge")).rejects.toThrow(/absolute/);
   });
 });
+
+describe("import failure causes are distinguishable (2026-08-10 transfer)", () => {
+  /** Three nights of dream-engine repairs all shared one shape: several distinct
+   * causes collapsed into a single number, so the operator was pointed at the wrong
+   * problem (or none). importStore had the same shape — a path-traversal rejection,
+   * a secret-scan refusal, and a disk error all became `rejected += 1` inside a bare
+   * `catch {}` that discarded the error. */
+  async function archiveWith(rows: Array<{ path: string; body: string }>): Promise<string> {
+    const { gzipSync } = await import("node:zlib");
+    const { writeFile } = await import("node:fs/promises");
+    const jsonl = rows
+      .map((r) =>
+        JSON.stringify({
+          path: r.path,
+          contentBase64: Buffer.from(r.body, "utf8").toString("base64"),
+        }),
+      )
+      .join("\n");
+    const p = path.join(
+      os.tmpdir(),
+      `gcm-craft-${Date.now()}-${Math.random().toString(36).slice(2)}.gcm.gz`,
+    );
+    await writeFile(p, gzipSync(Buffer.from(`${jsonl}\n`, "utf8")));
+    return p;
+  }
+
+  it("a traversal path and a secret-scan refusal report DIFFERENT reason codes", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-reason-"));
+    const store = await MemoryStore.initStore(root);
+    const archive = await archiveWith([
+      { path: "../escape.md", body: "nope\n" },
+      { path: "memory/leak.md", body: "AKIAIOSFODNN7EXAMPLE\n" },
+    ]);
+    const r = await importStore(store, archive, "merge");
+    expect(r.rejected).toBe(2);
+    // the discriminating assertion: same count, different causes
+    expect(r.reasons?.path_violation).toBe(1);
+    expect(r.reasons?.canonical_write).toBe(1);
+    expect(await store.read("memory/leak.md")).toBeNull();
+  });
+
+  it("a clean merge reports zero rejections and an ok status", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-reason-ok-"));
+    const store = await MemoryStore.initStore(root);
+    const archive = await archiveWith([
+      { path: "memory/fine.md", body: "---\ntitle: F\ndescription: d\n---\n\nfine\n" },
+    ]);
+    const r = await importStore(store, archive, "merge");
+    expect(r.imported).toBe(1);
+    expect(r.rejected).toBe(0);
+    expect(r.ok).toBe(true); // positive control: ok must be able to be true
+  });
+
+  it("any rejection makes the run NOT ok (so the CLI can exit non-zero)", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-reason-bad-"));
+    const store = await MemoryStore.initStore(root);
+    const archive = await archiveWith([{ path: "../escape.md", body: "nope\n" }]);
+    const r = await importStore(store, archive, "merge");
+    expect(r.ok).toBe(false);
+  });
+});

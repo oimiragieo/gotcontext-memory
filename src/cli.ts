@@ -287,6 +287,14 @@ export function buildCli(): Command {
       if (!mode) throw new Error("pass --merge or --replace");
       const r = await importStore(store, opts.from, mode);
       console.log(JSON.stringify(r, null, 2));
+      // Rows can be rejected while others import; exiting 0 there reported a
+      // partial or total loss as success. Any not-ok import fails the command.
+      if (!r.ok) {
+        console.error(
+          `import NOT ok: ${r.rejected} rejected — ${JSON.stringify(r.reasons)}; see receipts/`,
+        );
+        process.exitCode = 1;
+      }
     });
 
   program.command("mcp").action(async () => {

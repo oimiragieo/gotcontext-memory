@@ -53,7 +53,14 @@ export async function importStore(
   store: MemoryStore,
   archivePath: string,
   mode: "merge" | "replace",
-): Promise<{ imported: number; rejected: number; skipped: number }> {
+): Promise<{
+  imported: number;
+  rejected: number;
+  skipped: number;
+  reasons: Record<string, number>;
+  firstError: Record<string, string>;
+  ok: boolean;
+}> {
   if (!path.isAbsolute(archivePath)) {
     throw new Error("import archive must be absolute");
   }
@@ -64,6 +71,18 @@ export async function importStore(
   let imported = 0;
   let rejected = 0;
   let skipped = 0;
+  // Reason-coded rejection counters. A single `rejected` number cannot tell an
+  // operator whether an archive tried a path traversal, tripped the secret scanner,
+  // or hit a full disk — and the bare `catch {}` below discarded the error entirely.
+  // Same shape as the dream engine's INDEX_DRIFT_OR_CAS catch-all and its
+  // truncated-vs-malformed conflation; both misdirected diagnosis for days.
+  const reasons: Record<string, number> = {};
+  const firstError: Record<string, string> = {};
+  const note = (code: string, err?: unknown) => {
+    reasons[code] = (reasons[code] ?? 0) + 1;
+    const msg = (err as Error)?.message;
+    if (msg && !firstError[code]) firstError[code] = msg.slice(0, 200);
+  };
   const archivePaths = new Set<string>();
   const rows: Array<{ path: string; contentBase64: string }> = [];
   for (const line of raw.split(/\r?\n/).filter(Boolean)) {
@@ -94,8 +113,11 @@ export async function importStore(
               baseHash: base,
               provenance: { authored_by: "system", source: "import-replace" },
             });
-          } catch {
-            /* leave and count later via reject if needed */
+          } catch (err) {
+            // A failed delete during --replace leaves a note the archive says should
+            // be gone, so "replace" silently degrades to "merge". The old comment
+            // here promised to "count later via reject if needed"; it never did.
+            note("replace_delete_failed", err);
           }
         }
       }
@@ -106,8 +128,9 @@ export async function importStore(
   for (const row of rows) {
     try {
       assertSafeRelativePath(row.path);
-    } catch {
+    } catch (err) {
       rejected += 1;
+      note("path_violation", err);
       continue;
     }
     const bodyBuf = Buffer.from(row.contentBase64, "base64");
@@ -122,8 +145,9 @@ export async function importStore(
           provenance: { authored_by: "system", source: "import" },
         });
         imported += 1;
-      } catch {
+      } catch (err) {
         rejected += 1;
+        note("canonical_write", err);
       }
       continue;
     }
@@ -139,8 +163,9 @@ export async function importStore(
           scanSecrets: !!row.path.startsWith("proposals/"),
         });
         imported += 1;
-      } catch {
+      } catch (err) {
         rejected += 1;
+        note("operational_write", err);
       }
       continue;
     }
@@ -156,8 +181,10 @@ export async function importStore(
       baseHash: indexHash,
       provenance: { authored_by: "system", source: "import-index" },
     });
-  } catch {
-    /* ok if unchanged / conflict */
+  } catch (err) {
+    // "unchanged" is fine; a genuine CAS conflict means MEMORY.md is now STALE
+    // relative to the tree we just wrote. Those are not the same outcome.
+    note("index_write_failed", err);
   }
 
   await store.commitOperational({
@@ -167,9 +194,14 @@ export async function importStore(
       imported,
       rejected,
       skipped,
+      reasons,
+      firstError,
       at: new Date().toISOString(),
     })}\n`,
     scanSecrets: false,
   });
-  return { imported, rejected, skipped };
+  // ok is the signal a caller can act on: any rejection, failed replace-delete, or
+  // stale index makes the run NOT ok, even though rows were imported.
+  const ok = rejected === 0 && !reasons.replace_delete_failed && !reasons.index_write_failed;
+  return { imported, rejected, skipped, reasons, firstError, ok };
 }
