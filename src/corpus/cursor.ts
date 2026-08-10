@@ -111,7 +111,7 @@ export const cursorCorpus: CorpusSource = {
 };
 
 /** Fixture schema: ItemTable key `composerData:<id>` → JSON { bubbles: [{type,text}] } */
-async function readVscdbTurns(dbPath: string) {
+export async function readVscdbTurns(dbPath: string) {
   const { DatabaseSync } = await import("node:sqlite");
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {

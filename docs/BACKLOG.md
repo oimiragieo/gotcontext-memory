@@ -39,7 +39,7 @@ Status tags: `OPEN` | `BLOCKED` | `PARKED` | `DONE`
 | BL-DRM-013 | Suppress rejected + accepted resurrection | DONE | rejected=`claimKey`; accepted prefs=path presence |
 | BL-DRM-014 | maxProposals by evidence strength | DONE | was sha256 id sort |
 | BL-DRM-015 | `--max-sessions` window (default 400) | DONE | |
-| BL-DRM-016 | Re-wire Cursor `.vscdb` into digest path | OPEN | **Pre-1.0 must-fix** |
+| BL-DRM-016 | Re-wire Cursor `.vscdb` into digest path | **CLOSED 2026-08-10** | `digestVscdbFile` + shared `classifyText`; 3 tests incl. unreadable-.vscdb-is-counted |
 | BL-DRM-003 | Schema honesty create\|expire producers | OPEN | |
 | BL-DRM-004 | MCP propose share proposalId + policy | OPEN | |
 | BL-DRM-006 | Guides catch up `--force` / sources[] | OPEN | |

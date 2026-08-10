@@ -62,13 +62,10 @@ function sample<T>(arr: T[], item: T): void {
   if (arr.length < DIGEST_SIGNAL_CAP) arr.push(item);
 }
 
-export async function digestTranscriptFile(
-  file: string,
-  opts: { source: string; projectKey?: string; maxBytes?: number },
-): Promise<SessionDigest> {
-  const maxBytes = opts.maxBytes ?? DIGEST_MAX_BYTES;
-  const d: SessionDigest = {
-    id: path.basename(file, ".jsonl"),
+/** One shape, one place — both digest paths start here. */
+function emptyDigest(file: string, opts: { source: string; projectKey?: string }): SessionDigest {
+  return {
+    id: path.basename(file).replace(/\.(jsonl|vscdb)$/i, ""),
     source: opts.source,
     path: file,
     projectKey: opts.projectKey ?? path.basename(path.dirname(file)),
@@ -90,6 +87,64 @@ export async function digestTranscriptFile(
     skills: [],
     models: [],
   };
+}
+
+/** Classify one text blob into a digest. Shared by the JSONL and .vscdb paths so a
+ * Cursor session is never scored by different rules than a Claude one. */
+function classifyText(d: SessionDigest, text: string, lineNo: number, isUser: boolean): void {
+  const head = text.slice(0, 400);
+  if (HOOK_BLOCK_RE.test(head)) {
+    d.nHookBlocks += 1;
+    sample(d.hookBlocks, { line: lineNo, snip: head.slice(0, 200) });
+  } else if (CORRECTION_RE.test(head)) {
+    d.nUserCorrections += 1;
+    sample(d.userCorrections, { line: lineNo, snip: head.slice(0, 200) });
+  }
+  if (isUser) {
+    const pref = text.trim().match(PREFERENCE_RE);
+    if (pref && !PREFERENCE_DENY_RE.test(pref[1])) {
+      d.nPreferences += 1;
+      sample(d.preferences, { line: lineNo, span: pref[1].trim() });
+    }
+  }
+}
+
+/**
+ * Digest a Cursor `.vscdb` (read-only SQLite) session. Bounded by the query, not
+ * streamed — these stores are small, unlike the multi-GB JSONL transcripts. Closing
+ * BL-DRM-016: the digest path enumerated *.jsonl only, so this corpus silently left
+ * the dream when the streaming layer landed.
+ */
+export async function digestVscdbFile(
+  file: string,
+  opts: { source: string; projectKey?: string },
+): Promise<SessionDigest> {
+  const { readVscdbTurns } = await import("../corpus/cursor.js");
+  const turns = await readVscdbTurns(file);
+  const d = emptyDigest(file, opts);
+  let line = 0;
+  for (const t of turns) {
+    line += 1;
+    const isUser = t.role === "user" || t.role === "human";
+    if (isUser) d.nUser += 1;
+    else if (t.role === "assistant") d.nAssistant += 1;
+    if (t.text) classifyText(d, String(t.text), line, isUser);
+  }
+  d.bytes = await stat(file)
+    .then((x) => x.size)
+    .catch(() => 0);
+  d.sessionTs = await stat(file)
+    .then((x) => x.mtimeMs)
+    .catch(() => 0);
+  return d;
+}
+
+export async function digestTranscriptFile(
+  file: string,
+  opts: { source: string; projectKey?: string; maxBytes?: number },
+): Promise<SessionDigest> {
+  const maxBytes = opts.maxBytes ?? DIGEST_MAX_BYTES;
+  const d: SessionDigest = emptyDigest(file, opts);
 
   const stream = createReadStream(file, { encoding: "utf8" });
   const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
@@ -160,24 +215,10 @@ export async function digestTranscriptFile(
       }
 
       for (const t of texts) {
-        const head = t.slice(0, 400);
         // Classify FIRST, then sample. Doing the cap check inside the branch
         // condition is what let hook overflow fall through and be recorded as user
         // corrections (95.7% of that channel was contaminated before it was found).
-        if (HOOK_BLOCK_RE.test(head)) {
-          d.nHookBlocks += 1;
-          sample(d.hookBlocks, { line: lineNo, snip: head.slice(0, 200) });
-        } else if (CORRECTION_RE.test(head)) {
-          d.nUserCorrections += 1;
-          sample(d.userCorrections, { line: lineNo, snip: head.slice(0, 200) });
-        }
-        if (role === "user" || role === "human") {
-          const pref = t.trim().match(PREFERENCE_RE);
-          if (pref && !PREFERENCE_DENY_RE.test(pref[1])) {
-            d.nPreferences += 1;
-            sample(d.preferences, { line: lineNo, span: pref[1].trim() });
-          }
-        }
+        classifyText(d, t, lineNo, role === "user" || role === "human");
       }
     }
   } finally {
@@ -195,7 +236,7 @@ export async function digestTranscriptFile(
   return d;
 }
 
-/** Walk roots for *.jsonl WITHOUT reading them. Enumeration must stay O(1) memory. */
+/** Walk roots for *.jsonl and *.vscdb WITHOUT reading them (O(1) memory). */
 export async function enumerateJsonl(roots: string[]): Promise<string[]> {
   const { readdir } = await import("node:fs/promises");
   const out: string[] = [];
@@ -210,7 +251,8 @@ export async function enumerateJsonl(roots: string[]): Promise<string[]> {
     for (const e of ents) {
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) await walk(abs, depth + 1);
-      else if (e.isFile() && e.name.endsWith(".jsonl")) out.push(abs);
+      else if (e.isFile() && (e.name.endsWith(".jsonl") || e.name.endsWith(".vscdb")))
+        out.push(abs);
     }
   };
   for (const r of roots) await walk(r, 0);
@@ -254,11 +296,13 @@ export async function digestRoots(opts: {
       continue;
     }
     try {
-      const d = await digestTranscriptFile(file, {
-        source: opts.source,
-        projectKey,
-        maxBytes: opts.maxBytes,
-      });
+      const d = file.toLowerCase().endsWith(".vscdb")
+        ? await digestVscdbFile(file, { source: opts.source, projectKey })
+        : await digestTranscriptFile(file, {
+            source: opts.source,
+            projectKey,
+            maxBytes: opts.maxBytes,
+          });
       if (d.truncated) res.truncated += 1;
       res.malformed += d.malformed;
       res.digests.push(d);

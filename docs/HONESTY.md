@@ -48,11 +48,12 @@ A full `dream` over 17,264 sessions completes under a **512 MB** heap.
 - Per-file reads stop at a byte ceiling and are reported as **`truncated`**, counted
   separately from **`malformed`**. A size limit is a bounded read, not corruption, and
   conflating the two hides an OOM-class event behind a parse-error count.
-- **Known gap:** the digest path enumerates `*.jsonl` only, so Cursor's read-only
-  `.vscdb` SQLite corpus is **no longer consulted by `dream`** (its `.jsonl` files still
-  are). `cursorCorpus` still implements the SQLite reader; it is simply not wired into
-  the streaming path. This is a coverage regression accepted in exchange for bounded
-  memory, and it should be closed before 1.0.0.
+- **Closed 2026-08-10 (BL-DRM-016).** The digest path now enumerates `*.vscdb`
+  alongside `*.jsonl` and digests Cursor's read-only SQLite store via
+  `digestVscdbFile`. Both paths share one `classifyText`, so a Cursor session is
+  scored by exactly the same rules as a Claude one. `.vscdb` is bounded by its query
+  rather than streamed — these stores are small, unlike the multi-GB JSONL
+  transcripts — and an unreadable `.vscdb` is counted as `malformed`, never fatal.
 
 ## Adapter / corpus matrix
 
@@ -60,7 +61,7 @@ A full `dream` over 17,264 sessions completes under a **512 MB** heap.
 |---|---|---|
 | Claude Code | CLAUDE.md managed block | Full — fixture-pinned Claude JSONL (incl. Skill tool_use when present) |
 | Codex | AGENTS.md managed block | Full turns — fixture-pinned Codex JSONL; tool/skill metadata often empty in fixtures |
-| Cursor | `.cursor/rules/*.mdc` | JSONL via digest dream; `.vscdb` still in `cursorCorpus` but **not** wired into streaming dream (gap BL-DRM-016); tool/skill metadata partial |
+| Cursor | `.cursor/rules/*.mdc` | JSONL **and** `.vscdb` on the digest dream path (BL-DRM-016 closed 2026-08-10); tool/skill metadata partial |
 | Antigravity (`agy`) | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
 | OpenCode | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
 
@@ -70,7 +71,7 @@ A full `dream` over 17,264 sessions completes under a **512 MB** heap.
 - `memoryTreeHash` covers `memory/**` + `MEMORY.md` only (not proposals/revisions/receipts).
 - Human edits outside the CLI are allowed; the **caller** must supply `baseHash` equal to
   current on-disk bytes (or `absent`). There is no silent reconciliation workflow in v1 —
-  `doctor` reports dangling index entries and `receipts/*.error.json` accept failures (`INDEX_DRIFT_OR_CAS`);
+  `doctor` reports dangling index entries and `receipts/*.error.json` accept failures, which now name the CAUSE (CAS_CONFLICT / SECRET_DETECTED / INDEX_CAP / TARGET_MISSING / INVALID_PROPOSAL / PROPOSAL_EXPIRED / PATH_VIOLATION / INTERNAL_ERROR — the old `INDEX_DRIFT_OR_CAS` catch-all is gone);
   `commitCanonical` refuses stale CAS.
 
 ## Uninstall
