@@ -1,0 +1,103 @@
+name: Bug report
+description: Something broken, wrong, or unsafe in gotcontext-memory
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Please fill every required field — incomplete reports
+        are hard to reproduce. Read [HONESTY.md](https://github.com/oimiragieo/gotcontext-memory/blob/main/docs/HONESTY.md)
+        if you are unsure whether this is a bug vs an intentional limit.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which subsystem is closest?
+      options:
+        - dream / digests / prevalence
+        - efficacy
+        - review / accept / reject
+        - store / CAS / locks / MEMORY.md
+        - MCP
+        - corpus / harness importers
+        - installer / adapters
+        - doctor / CLI
+        - docs / skills
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: From package.json or `npm list gotcontext-memory`
+      placeholder: "0.9.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - WSL2
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Output of `node -v` (need ≥ 22.5.0)
+      placeholder: "v22.14.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: One or two sentences. What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands and config. Prefer a minimal sandbox HOME.
+      placeholder: |
+        export HOME=/tmp/gcm-repro
+        gotcontext-memory init
+        gotcontext-memory dream --source claude --force
+        …
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paste stderr, doctor JSON, or receipt paths. Redact secrets.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I redacted tokens / API keys / personal paths that must stay private
+          required: true
+        - label: I searched existing issues for a duplicate
+          required: true
+        - label: `npm test` / `npm run lint` status noted above if this is a contributor report
+          required: false

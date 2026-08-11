@@ -25,6 +25,8 @@ navigable.
 | 11 | [SKILLS.md](./SKILLS.md) | Which agent skills to load |
 | 12 | [guides/rebuild-from-scratch.md](./guides/rebuild-from-scratch.md) | Junior rebuild / verify checklist |
 | 13 | [features/efficacy.md](./features/efficacy.md) | Score accepted pattern notes |
+| 14 | [guides/issue-triage-weekly.md](./guides/issue-triage-weekly.md) | Weekly AI/human issue processing |
+| 15 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | How to file bugs/features |
 
 ---
 

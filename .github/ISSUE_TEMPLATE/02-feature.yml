@@ -1,0 +1,73 @@
+name: Feature request
+description: Propose a capability, harness, or UX improvement
+title: "[feat] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. Prefer problem → proposed shape → why it fits
+        HITL honesty. See [HONESTY.md](https://github.com/oimiragieo/gotcontext-memory/blob/main/docs/HONESTY.md)
+        and [BACKLOG.md](https://github.com/oimiragieo/gotcontext-memory/blob/main/docs/BACKLOG.md).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - dream / digests / prevalence
+        - efficacy
+        - review / HITL UX
+        - store / portability
+        - MCP
+        - corpus / new harness
+        - doctor / CLI
+        - docs / skills
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Who hurts today? What workaround do they use?
+      placeholder: "When I run dream over N sessions, I cannot…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: How should it work? CLI flags, files, HITL steps?
+    validations:
+      required: true
+
+  - type: textarea
+    id: honesty
+    attributes:
+      label: Honesty check
+      description: Does this stay proposal-only / HITL? Would it need an LLM? Auto-apply?
+      placeholder: "Still proposals-only; no scheduler; …"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willing
+    attributes:
+      label: Would you implement this?
+      options:
+        - "Yes — I can open a PR"
+        - "Maybe — with guidance"
+        - "No — request only"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Alternatives / links
+      description: Prior art, related issues, screenshots
+    validations:
+      required: false

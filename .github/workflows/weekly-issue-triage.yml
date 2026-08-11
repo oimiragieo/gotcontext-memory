@@ -1,0 +1,30 @@
+name: weekly-issue-triage
+
+# Opens or refreshes a "Weekly triage YYYY-Www" issue with open bugs/features
+# and needs-triage items for AI + human processing.
+# Guide: docs/guides/issue-triage-weekly.md
+
+on:
+  schedule:
+    # Mondays 15:00 UTC ≈ late morning US East
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+      - name: Generate weekly triage issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          chmod +x scripts/weekly-issue-digest.sh
+          scripts/weekly-issue-digest.sh

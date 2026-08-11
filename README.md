@@ -8,6 +8,7 @@ New here? Start with the docs hub — especially if you are learning the system:
 **→ [docs/START-HERE.md](docs/START-HERE.md)** (plain-language orientation)  
 **→ [docs/guides/quickstart.md](docs/guides/quickstart.md)** (install → init → dream)  
 **→ [docs/guides/rebuild-from-scratch.md](docs/guides/rebuild-from-scratch.md)** (junior rebuild path)  
+**→ [CONTRIBUTING.md](CONTRIBUTING.md)** · [Report a bug / feature](https://github.com/oimiragieo/gotcontext-memory/issues/new/choose)  
 **→ [AGENTS.md](AGENTS.md)** · **[docs/SKILLS.md](docs/SKILLS.md)** (agents / skill registry)
 
 ### For agents

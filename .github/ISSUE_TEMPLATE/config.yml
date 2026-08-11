@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read honesty + rebuild guide first
+    url: https://github.com/oimiragieo/gotcontext-memory/blob/main/docs/HONESTY.md
+    about: What this package claims (and does not). Avoid filing “missing LLM dream” as a bug.
+  - name: Junior rebuild / verify path
+    url: https://github.com/oimiragieo/gotcontext-memory/blob/main/docs/guides/rebuild-from-scratch.md
+    about: Install, dream, accept, efficacy — step by step before reporting setup failures.
+  - name: Discussions (Q&A)
+    url: https://github.com/oimiragieo/gotcontext-memory/discussions
+    about: Questions and design chat — not bugs or feature trackers.
