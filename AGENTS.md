@@ -11,6 +11,21 @@ Instructions for any coding agent working in this repo.
 5. [`docs/SKILLS.md`](docs/SKILLS.md) — **skill registry** (load the matching skill before editing)  
 6. [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) — multi-lane evolution workflow  
 7. [`docs/guides/rebuild-from-scratch.md`](docs/guides/rebuild-from-scratch.md) — junior rebuild path  
+8. [`docs/guides/issue-triage-weekly.md`](docs/guides/issue-triage-weekly.md) — weekly AI/human bug+feature triage  
+9. [`CONTRIBUTING.md`](CONTRIBUTING.md) — how outsiders file bugs/features  
+
+## Community issues (bugs / features / weekly AI triage)
+
+- **File here (templates only):** https://github.com/oimiragieo/gotcontext-memory/issues/new/choose  
+  - Bug → labels `bug` + `needs-triage`  
+  - Feature → labels `enhancement` + `needs-triage`  
+  - Blank issues are **disabled**; questions → [Discussions](https://github.com/oimiragieo/gotcontext-memory/discussions)  
+- **Weekly digest:** Actions cron `weekly-issue-triage` (Mondays 15:00 UTC) opens/refreshes  
+  `Weekly triage YYYY-Www` labeled `triage/weekly` via `scripts/weekly-issue-digest.sh`.  
+- **When processing triage:** follow [`docs/guides/issue-triage-weekly.md`](docs/guides/issue-triage-weekly.md) —  
+  classify (`area/*`, `priority/p0|p1|p2`), dedupe vs BACKLOG, draft comments, propose BACKLOG IDs.  
+  **Do not** close p0/security or merge code without a human. Remove `needs-triage` after classifying.  
+- Manual refresh: `bash scripts/weekly-issue-digest.sh` or Actions → Run workflow.
 
 ## Skills (load by task)
 

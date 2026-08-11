@@ -8,7 +8,15 @@ Follow [`AGENTS.md`](./AGENTS.md). Same rules bind Claude Code, Cursor, Codex, a
 **CEO brief:** [`docs/CEO_UPDATE_2026-08-09.md`](./docs/CEO_UPDATE_2026-08-09.md)  
 **Skill registry:** [`docs/SKILLS.md`](./docs/SKILLS.md)  
 **Rebuild (junior):** [`docs/guides/rebuild-from-scratch.md`](./docs/guides/rebuild-from-scratch.md)  
-**Workflows:** [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md)
+**Workflows:** [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md)  
+**Contributing / issues:** [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [file bug/feature](https://github.com/oimiragieo/gotcontext-memory/issues/new/choose)  
+**Weekly AI triage:** [`docs/guides/issue-triage-weekly.md`](./docs/guides/issue-triage-weekly.md) · cron `weekly-issue-triage` · `scripts/weekly-issue-digest.sh`
+
+## Community issues (quick)
+
+- Templates only (no blank issues): bug → `needs-triage`; feature → `needs-triage`.  
+- Questions → Discussions. Weekly digest issue = label `triage/weekly`.  
+- Process with the triage guide; never auto-close p0/security without a human.
 
 ## Skills (load before editing the matching surface)
 
