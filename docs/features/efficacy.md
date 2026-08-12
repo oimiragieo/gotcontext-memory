@@ -85,3 +85,33 @@ npm test -- test/efficacy.test.ts
 ```
 
 You should see arms for RESOLVED, PERSISTING, INSUFFICIENT_DATA, and UNPARSEABLE_NOTE.
+
+---
+
+## Lifecycle (2026-08-12): trends act, humans still decide
+
+A single verdict is a data point; two agreeing runs are a **trend** the loop may
+act on. Every run appends to `efficacy/history.jsonl` (operational storage —
+`memoryTreeHash` is never touched by scoring), and each result carries a
+`streak` counter.
+
+| Trend | What happens | Who decides |
+|---|---|---|
+| `RESOLVED` ×2, ≥15 post-acceptance sessions, `--propose-expiry` | An `expire` **proposal** is created through the normal review flow (idempotent; notes already expiring are skipped) | **A human**, at `review accept` |
+| `PERSISTING` ×2 | `recommend_mechanize: true` and exit 1 — the note is not working; the fix is a mechanism (hook/gate), never a re-worded note | You. This toolkit is harness-agnostic: it says *what* needs mechanizing, it never installs anything |
+
+## Model-conditional verdicts
+
+Digests carry the models a session ran on. Where a model has **≥5**
+post-acceptance sessions, the result includes a per-model verdict
+(`model_verdicts`, e.g. `{"opus": "PERSISTING 6/14", "fable": "RESOLVED 0/72"}`).
+A split verdict is a **scope-narrowing finding**, not a contradiction: the note
+works on one model and not another — narrow its stated scope and keep both
+variants (the GEPA Pareto rule). Thinner per-model windows are never judged.
+
+## Honesty limits (unchanged and load-bearing)
+
+Matching is exact-`signalKey`: a rephrased failure scores as a different pattern.
+Preference notes carry no machine signature and are not scored. Verdicts are
+signals, not targets — optimizing FOR a verdict is the Goodhart failure the SRE
+alert-quality literature warns about.

@@ -1,6 +1,10 @@
 # Gotcontext Memory
 
-Multi-harness **disk-canonical markdown memory** + out-of-band **HITL dreaming**.
+Multi-harness **disk-canonical markdown memory** + out-of-band **HITL dreaming** —
+one interface that mines the session history of **every CLI agent on the machine**
+(Claude Code, Codex, Cursor, OpenCode, Antigravity) through one shared classifier,
+scores whether accepted lessons actually worked (per model), and routes every
+consequence through a human.
 
 New here? Start with the docs hub — especially if you are learning the system:
 

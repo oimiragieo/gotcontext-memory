@@ -98,7 +98,15 @@ strata,” not “the last 400 files by mtime.”
 ## Pipeline (step by step)
 
 1. Refuse unless `dream.enabled` or `--force`.
-2. For each source: `digestRoots` → stratified digests.
+2. For each source: `digestRoots` → stratified digests. The `opencode` source
+   additionally reads OpenCode's real store — a SQLite db, not JSONL — via
+   `digestOpencodeDb` (read-only, newest-N by session clock), reported as its own
+   `opencode-db` summary row. Codex rollouts (`response_item`/`payload.message`)
+   parse natively since 2026-08-12; before that they digested as empty shells.
+   **One classifier (`classifyText`) scores every source**, so a session is
+   judged by identical rules whether it arrived as Claude JSONL, a codex
+   rollout, a Cursor `.vscdb`, or an OpenCode SQLite row — and one recurring
+   pattern across tools counts as ONE pattern with one k/n.
 3. Load current `memory/**` hashes + rejected `claimKey`s.
 4. Build preference + prevalence + staleness (`expire`) proposals.
 5. Skip preference targets that **already exist** (accepted / human-edited).
