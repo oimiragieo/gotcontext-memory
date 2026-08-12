@@ -13,6 +13,7 @@ import { runDoctor } from "./doctor.js";
 import { digestRoots } from "./dream/digest.js";
 import { measureEfficacy } from "./dream/efficacy.js";
 import { runDreamFromDigests } from "./dream/run.js";
+import { measureUsage } from "./dream/usage.js";
 import { fileExists } from "./hash.js";
 import { installFragments, uninstallFragments } from "./installer.js";
 import { runMcpServer } from "./mcp/server.js";
@@ -159,7 +160,6 @@ export function buildCli(): Command {
         truncated: number;
       }> = [];
       for (const name of selected) {
-        const src = sources[name];
         const roots = defaultCorpusRoots(name);
         const result = await digestRoots({
           roots,
@@ -306,6 +306,10 @@ export function buildCli(): Command {
     .option("--source <name>", "claude|codex|cursor|agy|opencode|all", "all")
     .option("--scope <tier>", "user|project")
     .option("--max-sessions <n>", "post-acceptance window per source", "400")
+    .option(
+      "--propose-expiry",
+      "RESOLVED x2 with an adequate window: emit an expire PROPOSAL (a human still reviews)",
+    )
     .action(async (opts) => {
       const global = program.opts();
       const store = await openStore(global.store ?? opts.scope);
@@ -331,7 +335,9 @@ export function buildCli(): Command {
         });
         digests.push(...r.digests);
       }
-      const results = await measureEfficacy(store, digests);
+      const results = await measureEfficacy(store, digests, {
+        proposeExpiry: !!opts.proposeExpiry,
+      });
       console.log(JSON.stringify({ notes: results.length, results }, null, 2));
       // PERSISTING notes are actionable (escalate, don't re-remember); UNPARSEABLE
       // notes are damaged. Either makes the command exit non-zero so automation
@@ -339,6 +345,39 @@ export function buildCli(): Command {
       if (results.some((r) => r.verdict === "PERSISTING" || r.verdict === "UNPARSEABLE_NOTE")) {
         process.exitCode = 1;
       }
+    });
+
+  program
+    .command("usage")
+    .description(
+      "Skill-usage telemetry derived from digests (REPORT-ONLY; never edits or archives a skill)",
+    )
+    .option("--source <name>", "claude|codex|cursor|agy|opencode|all", "all")
+    .option("--skills-dir <path>", "registry of <name>/SKILL.md folders (the denominator)")
+    .option("--max-sessions <n>", "window per source", "400")
+    .action(async (opts) => {
+      const sources = {
+        claude: claudeCorpus,
+        codex: codexCorpus,
+        cursor: cursorCorpus,
+        agy: agyCorpus,
+        opencode: opencodeCorpus,
+      } as const;
+      const selected =
+        opts.source === "all"
+          ? (Object.keys(sources) as CorpusSourceName[])
+          : ([opts.source] as CorpusSourceName[]).filter((k) => k in sources);
+      const digests = [];
+      for (const name of selected) {
+        const r = await digestRoots({
+          roots: defaultCorpusRoots(name),
+          source: name,
+          maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+        });
+        digests.push(...r.digests);
+      }
+      const report = measureUsage(digests, opts.skillsDir);
+      console.log(JSON.stringify(report, null, 2));
     });
 
   program.command("mcp").action(async () => {

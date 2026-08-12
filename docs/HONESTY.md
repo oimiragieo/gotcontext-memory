@@ -59,6 +59,30 @@ Related fix, same date: note frontmatter is now emitted with a YAML-quoted
 ("eisdir: illegal operation…") produced a note whose frontmatter failed to parse —
 breaking the staleness sweep and anything else reading it.
 
+### Lifecycle + usage (2026-08-12) — trends act, humans still decide
+
+- **Streaks.** Efficacy verdicts are history-backed (`efficacy/history.jsonl`,
+  operational storage — `memoryTreeHash` untouched): one run is a data point, two
+  agreeing runs are a trend.
+- **Retire:** RESOLVED on ≥2 consecutive runs with ≥15 post-acceptance sessions and
+  `--propose-expiry` emits an `expire` PROPOSAL through the normal review flow —
+  idempotent (no duplicate proposals; notes already carrying `expires` are skipped),
+  and canonical memory is never touched by scoring. **A human still accepts.**
+- **Escalate:** PERSISTING on ≥2 consecutive runs sets `recommend_mechanize` and the
+  command exits non-zero. This toolkit is harness-agnostic: it SAYS "this needs a
+  mechanism", it never installs hooks or edits harness config.
+- **Model-conditional verdicts:** per-model RESOLVED/PERSISTING where that model has
+  ≥5 post-acceptance sessions; thinner windows are never judged. A split verdict is a
+  scope-narrowing finding, not a contradiction — keep both variants.
+- **`usage`:** skill-usage telemetry DERIVED from digests (portable across every
+  ingested harness), with an optional `--skills-dir` registry denominator.
+  REPORT-ONLY — never archives, deletes, or edits a skill. The never-used grace
+  floor (dir younger than 14 days = `too-new-to-judge`) means a mass pack install
+  reports honestly: "0 never-used" beside a large too-new bucket is NOT evidence
+  everything is used, and the summary carries both numbers so nobody misreads it.
+- **Not ported, by design:** council-seat calibration (this package has no council —
+  the human is the reviewer) and hook installation (harness-specific).
+
 ### Corpus reading is streamed and bounded
 
 Transcripts are streamed line-by-line into ~1 KB digests; whole transcripts are never
