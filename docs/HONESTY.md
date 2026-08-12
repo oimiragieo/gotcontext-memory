@@ -105,11 +105,16 @@ A full `dream` over 17,264 sessions completes under a **512 MB** heap.
 
 | Harness | Install fragment | Corpus importer |
 |---|---|---|
-| Claude Code | CLAUDE.md managed block | Full — fixture-pinned Claude JSONL (incl. Skill tool_use when present) |
-| Codex | AGENTS.md managed block | Full turns — fixture-pinned Codex JSONL; tool/skill metadata often empty in fixtures |
+| Claude Code | CLAUDE.md managed block | Full — Claude JSONL on the digest path (incl. Skill tool_use when present) |
+| Codex | AGENTS.md managed block | Full turns — REAL rollout shape (`response_item`/`payload.message`) on the digest path since 2026-08-12; before that, codex sessions digested as EMPTY SHELLS (scanned+included, zero signal). developer/system turns excluded (injected instructions are not user signal). Tool/skill metadata not yet parsed |
 | Cursor | `.cursor/rules/*.mdc` | JSONL **and** `.vscdb` on the digest dream path (BL-DRM-016 closed 2026-08-10); tool/skill metadata partial |
-| Antigravity (`agy`) | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
-| OpenCode | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood yet |
+| Antigravity (`agy`) | AGENTS.md managed block | **PARTIAL** — enumerates candidates; no parse dogfood (no agy corpus existed on the reference machine to pin against) |
+| OpenCode | AGENTS.md managed block | **SQLite db on the digest path since 2026-08-12** (`digestOpencodeDb`: read-only, newest-N by session clock, shared classifier; session/message/part schema; dogfooded against a real 10.1 GB db — 293 sessions digested). The JSONL roots remain configured but have never existed in the wild |
+
+One classifier (`classifyText`) scores every source — a session is judged by the same
+rules whether it arrived as Claude JSONL, a codex rollout, a Cursor `.vscdb`, or an
+OpenCode SQLite row. Adding a new CLI = one adapter that yields (role, text, clock)
+into that classifier; nothing downstream changes.
 
 ## Caps & CAS
 

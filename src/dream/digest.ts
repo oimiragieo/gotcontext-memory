@@ -63,7 +63,10 @@ function sample<T>(arr: T[], item: T): void {
 }
 
 /** One shape, one place — both digest paths start here. */
-function emptyDigest(file: string, opts: { source: string; projectKey?: string }): SessionDigest {
+export function emptyDigest(
+  file: string,
+  opts: { source: string; projectKey?: string },
+): SessionDigest {
   return {
     id: path.basename(file).replace(/\.(jsonl|vscdb)$/i, ""),
     source: opts.source,
@@ -91,7 +94,12 @@ function emptyDigest(file: string, opts: { source: string; projectKey?: string }
 
 /** Classify one text blob into a digest. Shared by the JSONL and .vscdb paths so a
  * Cursor session is never scored by different rules than a Claude one. */
-function classifyText(d: SessionDigest, text: string, lineNo: number, isUser: boolean): void {
+export function classifyText(
+  d: SessionDigest,
+  text: string,
+  lineNo: number,
+  isUser: boolean,
+): void {
   const head = text.slice(0, 400);
   if (HOOK_BLOCK_RE.test(head)) {
     d.nHookBlocks += 1;
@@ -174,7 +182,31 @@ export async function digestTranscriptFile(
       if (!Number.isNaN(ts) && ts > d.sessionTs) d.sessionTs = ts;
 
       const message = obj.message as Record<string, unknown> | undefined;
-      if (!message) continue;
+      if (!message) {
+        // Codex rollout shape: {type:"response_item", payload:{type:"message",
+        // role, content:[{type:"input_text"|"output_text", text}]}}. Without this
+        // branch, 5,496 codex sessions digested as EMPTY SHELLS — scanned and
+        // "included" while contributing zero signal (the false-clean class).
+        const payload = obj.payload as Record<string, unknown> | undefined;
+        if (obj.type === "response_item" && payload?.type === "message") {
+          const role = String(payload.role ?? "unknown");
+          // developer/system turns are injected instructions, not user signal —
+          // counting them would let harness boilerplate mint fake "preferences"
+          if (role !== "user" && role !== "assistant") continue;
+          const ctexts: string[] = [];
+          for (const part of Array.isArray(payload.content) ? payload.content : []) {
+            const p = part as Record<string, unknown>;
+            if (p.type === "input_text" || p.type === "output_text") {
+              const t = String(p.text ?? "");
+              if (t) ctexts.push(t);
+            }
+          }
+          if (role === "user") d.nUser += 1;
+          else d.nAssistant += 1;
+          for (const t of ctexts) classifyText(d, t, lineNo, role === "user");
+        }
+        continue;
+      }
       const role = String(message.role ?? obj.type ?? "unknown");
       const model = message.model ? String(message.model) : "";
       if (model && !d.models.includes(model)) d.models.push(model);

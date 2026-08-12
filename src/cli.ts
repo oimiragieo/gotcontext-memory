@@ -12,6 +12,7 @@ import { corpusScanLabel } from "./corpus/types.js";
 import { runDoctor } from "./doctor.js";
 import { digestRoots } from "./dream/digest.js";
 import { measureEfficacy } from "./dream/efficacy.js";
+import { defaultOpencodeDbPath, digestOpencodeDb } from "./dream/opencode-db.js";
 import { runDreamFromDigests } from "./dream/run.js";
 import { measureUsage } from "./dream/usage.js";
 import { fileExists } from "./hash.js";
@@ -186,6 +187,24 @@ export function buildCli(): Command {
           // oversized transcript can never masquerade as malformed JSONL.
           truncated: result.truncated,
         });
+        if (name === "opencode") {
+          // OpenCode's real store is a SQLite db, not JSONL — the JSONL roots
+          // alone made this source scan zero while looking healthy.
+          const dbr = await digestOpencodeDb(defaultOpencodeDbPath(), {
+            maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+          });
+          scanned += dbr.scanned;
+          included += dbr.included;
+          digests.push(...dbr.digests);
+          sourceSummaries.push({
+            name: "opencode-db",
+            label: corpusScanLabel(dbr.scanned, dbr.included),
+            scanned: dbr.scanned,
+            included: dbr.included,
+            malformed: dbr.malformed,
+            truncated: dbr.truncated,
+          });
+        }
       }
       try {
         const { proposals, withheldSecrets, dropped, suppressedRejected, patterns } =
@@ -334,6 +353,12 @@ export function buildCli(): Command {
           maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
         });
         digests.push(...r.digests);
+        if (name === "opencode") {
+          const dbr = await digestOpencodeDb(defaultOpencodeDbPath(), {
+            maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+          });
+          digests.push(...dbr.digests);
+        }
       }
       const results = await measureEfficacy(store, digests, {
         proposeExpiry: !!opts.proposeExpiry,
@@ -375,6 +400,12 @@ export function buildCli(): Command {
           maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
         });
         digests.push(...r.digests);
+        if (name === "opencode") {
+          const dbr = await digestOpencodeDb(defaultOpencodeDbPath(), {
+            maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+          });
+          digests.push(...dbr.digests);
+        }
       }
       const report = measureUsage(digests, opts.skillsDir);
       console.log(JSON.stringify(report, null, 2));
