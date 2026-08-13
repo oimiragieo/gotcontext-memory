@@ -56,6 +56,87 @@ gotcontext-memory mcp   # thin JSON-RPC memory tools
 
 The full command reference is in [docs/reference/cli.md](docs/reference/cli.md).
 
+## How a memory evolves, end to end
+
+Every stage below is a command you run (or schedule); the two feedback edges at
+the bottom are the point of the design — decisions and outcomes flow back into
+the next dream, so the system learns from its own track record, not just from
+new transcripts.
+
+```mermaid
+flowchart TD
+    subgraph SOURCES["1 · Session sources"]
+        A1["Claude Code transcripts"]
+        A2["Codex rollouts"]
+        A3["OpenCode SQLite store"]
+        A4["Cursor · Antigravity"]
+    end
+
+    subgraph DIGEST["2 · dream (digest phase) — deterministic, $0"]
+        B1["Streaming digesters, one shared classifier"]
+        B2["Counts + cited line numbers only —<br/>raw content never leaves this stage"]
+        B1 --> B2
+    end
+
+    subgraph DREAM["3 · dream (propose phase)"]
+        C1["Stratified, date-labelled sample"]
+        C2["Your model proposes<br/>evidence-cited memory changes"]
+        C1 --> C2
+    end
+
+    subgraph REVIEW["4 · review — human in the loop"]
+        D1["Accept / reject each proposal,<br/>reason-coded"]
+    end
+
+    subgraph IMPORT["5 · import"]
+        E1["Hash-guarded write to the store"]
+        E2["Import-outcome ledger:<br/>landed vs refused, by exact content"]
+        E1 --> E2
+    end
+
+    subgraph EFFICACY["6 · efficacy"]
+        F1["Score landed notes against later sessions"]
+        F2{"Failure class exercised<br/>enough to trust silence?"}
+        F3["RESOLVED (earned)"]
+        F4["DORMANT (too quiet —<br/>never auto-expires)"]
+        F5["PERSISTING (note isn't working)"]
+        F6["EXPIRE vs RETAIN recommendation<br/>(expiry needs a mechanized /<br/>environment-changed justification)"]
+        F1 --> F2
+        F2 -- "yes, 0 hits" --> F3
+        F2 -- "no, 0 hits" --> F4
+        F1 -- "recurrences" --> F5
+        F3 --> F6
+    end
+
+    subgraph DECIDE["7 · report + ingest-decisions"]
+        G1{"triageCommand<br/>configured?"}
+        G2["Your reviewer command(s):<br/>unanimous verdicts act alone,<br/>anything else falls to the human"]
+        G3["report.html — approve /<br/>deny + reason / defer,<br/>saved locally as decisions.json"]
+        G4["ingest-decisions: approvals file<br/>expiry proposals, denials record<br/>suppression, file consumed (.done)"]
+        G1 -- yes --> G2 -- "splits only" --> G3
+        G1 -- no --> G3
+        G3 --> G4
+    end
+
+    SOURCES --> DIGEST --> DREAM --> REVIEW
+    D1 -- accepted --> IMPORT
+    D1 -- rejected --> X1["Suppressed —<br/>not re-proposed"]
+    IMPORT --> EFFICACY
+    F4 --> DECIDE
+    F5 --> DECIDE
+    F6 --> DECIDE
+    G4 -- "suppressions + expiries" --> DREAM
+    E2 -- "refused ≠ applied" --> F1
+```
+
+Two properties worth noticing. First, a refused or rejected write can never be
+scored as a success: efficacy reads the import-outcome ledger, so only notes
+that verifiably landed are ever judged. Second, silence is not victory: a note
+whose failure class went quiet scores `DORMANT`, not `RESOLVED`, and a note
+that is working *because it is loaded every session* is recommended `RETAIN`
+until the rule is mechanized or the environment changed — retiring the
+treatment is not the same as curing the disease.
+
 To verify the install against each supported harness in containers (Windows
 PowerShell with Docker Desktop):
 
