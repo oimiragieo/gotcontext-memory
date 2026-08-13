@@ -57,10 +57,79 @@ Exit **1** if any result is `PERSISTING` or `UNPARSEABLE_NOTE` (so scripts can g
 
 | Verdict | Meaning | What a junior should do |
 |---|---|---|
-| `RESOLVED` | Zero matches after acceptance in a thick enough window | Candidate to expire / archive the note |
+| `RESOLVED` | Zero matches after acceptance in a thick enough window, AND the failure class was exercised enough to trust the silence (see exposure gate below) | Candidate to expire / archive the note |
+| `DORMANT` | Zero matches after acceptance, but the failure class was barely exercised — "never fired" is not "fixed" | Wait for more exposure; **never** an expiry candidate |
 | `PERSISTING` | Still showing up | Do **not** just re-dream it — fix with a hook, tool change, or process |
 | `INSUFFICIENT_DATA` | Fewer than 5 post-acceptance sessions | Wait; thin windows never get a yes/no |
 | `UNPARSEABLE_NOTE` | Frontmatter/body cannot be parsed | Repair or replace the note (often pre-`yamlScalar` damage) |
+
+### The exposure gate (RESOLVED vs DORMANT)
+
+Zero post-acceptance hits is two different claims wearing the same clothes: "it
+worked" and "the failure class never came up." Conflating them let a note that
+was simply never exercised score identically to one that was proven fixed.
+
+`efficacy` disambiguates by projecting the note's **own claimed pre-acceptance
+rate** onto the post-acceptance window: `expected = (then_k / then_n) *
+after_n`. With zero post-apply hits:
+
+- `expected >= 3` → `RESOLVED` — enough exposure to trust the silence.
+- `expected < 3` → `DORMANT` — not enough exercise of the failure class to call
+  it fixed.
+- No baseline rate to project (the note has no `**Prevalence:**` line, or
+  `then_n` is 0) → falls back to `RESOLVED` (legacy behavior — this predates the
+  gate and there is nothing honest to project).
+
+`DORMANT` NEVER becomes an expiry candidate, at any streak, and resets a
+`RESOLVED` streak the same way `PERSISTING` does — it is not agreement.
+
+### Import-outcome gating
+
+Only notes whose landing into canonical memory is actually **on record as
+landed** are scored. `review accept`/`reject` and `import` all write to an
+outcome ledger (`efficacy/import-outcomes.jsonl`), keyed by
+`claimKey(targetPath, body)` — the exact content, not just the path, so a
+refusal on one version of a note never shadows a different, still-live version
+at the same path. No record at all is **legacy behavior**: score it (this
+predates the ledger, or the note was hand-written). A recorded `refused` or
+`skipped` outcome for the note's exact current text excludes it silently, the
+same way a note with no machine `**Pattern:**` signature is already excluded.
+
+### Cure vs treatment: the expiry justification gate
+
+A note can score `RESOLVED` **precisely because it is loaded every session** —
+expiring it removes the treatment, and the failure returns unscored (and
+un-remembered). `--propose-expiry` alone is a no-op: `expiry_recommendation`
+still computes (as `RETAIN`), but nothing gets filed. Actually filing the
+`expire` proposal additionally requires `--expiry-justification
+mechanized|environment-changed` — an explicit human claim that either the rule
+is now enforced elsewhere (a hook/gate) or the condition that caused the
+failure no longer applies. Without one, `efficacy` (and the [`report`](#hitl-decision-report-report--ingest-decisions)
+command) always recommends `RETAIN`. The toolkit recommends; a human still
+decides — the same HITL contract as everywhere else in this package.
+
+---
+
+## HITL decision report (`report` / `ingest-decisions`)
+
+`gotcontext-memory report` runs `efficacy` and writes a self-contained
+`report.html`: expiry candidates (`RETAIN`/`EXPIRE`) and `DORMANT`/`PERSISTING`
+notes needing attention, each with Approve/Deny/Defer. It opens from `file://`
+with no server — Save writes `decisions.json` locally via
+`window.showSaveFilePicker`. `gotcontext-memory ingest-decisions
+[decisions.json]` applies it: approvals on an expiry item file the same
+`expire` **proposal** `--propose-expiry` would (still reviewed at `review
+accept`); denials record a reason (`efficacy/report-decisions.jsonl`) so the
+item is never shown again; defers are no-ops. The decisions file is renamed to
+`<name>.done` after processing so it can never double-fire, and file references
+are **basename only** — no path traversal.
+
+An optional `report.triageCommand` config field (a string, or an array — each
+entry its own seat) can pre-triage items before they reach the human: unanimous
+`APPROVE`/`DENY` across all seats auto-decides; anything else — a split, a
+missing verdict line, a failed spawn — fails open to the human report. This is
+a council, and it is **optional**; the human report is the default. See
+[HONESTY.md](../HONESTY.md).
 
 ---
 
@@ -84,7 +153,8 @@ Matching uses the same `signalKey` as dream. A rephrased error looks like a
 npm test -- test/efficacy.test.ts
 ```
 
-You should see arms for RESOLVED, PERSISTING, INSUFFICIENT_DATA, and UNPARSEABLE_NOTE.
+You should see arms for RESOLVED, DORMANT, PERSISTING, INSUFFICIENT_DATA, and
+UNPARSEABLE_NOTE — plus the import-outcome exclusion in the same file.
 
 ---
 
@@ -97,7 +167,9 @@ act on. Every run appends to `efficacy/history.jsonl` (operational storage —
 
 | Trend | What happens | Who decides |
 |---|---|---|
-| `RESOLVED` ×2, ≥15 post-acceptance sessions, `--propose-expiry` | An `expire` **proposal** is created through the normal review flow (idempotent; notes already expiring are skipped) | **A human**, at `review accept` |
+| `RESOLVED` ×2, ≥15 post-acceptance sessions, `--propose-expiry` + `--expiry-justification` | An `expire` **proposal** is created through the normal review flow (idempotent; notes already expiring are skipped) | **A human**, at `review accept` |
+| `RESOLVED` ×2, ≥15 post-acceptance sessions, no justification | `expiry_recommendation: "RETAIN"` — nothing filed (cure vs treatment) | **A human**, via `report`/`ingest-decisions` if they want to override |
+| `DORMANT` (any streak) | Never expiry-eligible; not an actionable trend by itself | Wait for more post-acceptance sessions |
 | `PERSISTING` ×2 | `recommend_mechanize: true` and exit 1 — the note is not working; the fix is a mechanism (hook/gate), never a re-worded note | You. This toolkit is harness-agnostic: it says *what* needs mechanizing, it never installs anything |
 
 ## Model-conditional verdicts

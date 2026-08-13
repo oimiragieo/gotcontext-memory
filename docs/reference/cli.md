@@ -66,11 +66,18 @@ gotcontext-memory efficacy \
   [--scope user|project] \
   [--store user|project] \
   [--max-sessions 400] \
-  [--propose-expiry]
+  [--propose-expiry] \
+  [--expiry-justification mechanized|environment-changed]
 ```
 
 Scores accepted `memory/pattern-*.md` notes against sessions **after** acceptance.
-Verdicts: `RESOLVED` · `PERSISTING` · `INSUFFICIENT_DATA` · `UNPARSEABLE_NOTE`.
+Verdicts: `RESOLVED` · `DORMANT` · `PERSISTING` · `INSUFFICIENT_DATA` ·
+`UNPARSEABLE_NOTE`.
+
+Only notes whose landing into canonical memory is actually on record as
+**landed** are scored — a note with a recorded `refused`/`skipped` outcome for
+its exact text (import-outcome ledger, `efficacy/import-outcomes.jsonl`) is
+excluded; no record at all is legacy behavior (scored as before).
 
 Each result also carries:
 
@@ -81,14 +88,60 @@ Each result also carries:
 - `recommend_mechanize` — set on `PERSISTING` at streak ≥2: the note is not
   working; the fix is a mechanism, not a re-worded note. A recommendation only —
   this toolkit never installs hooks.
+- `expiry_recommendation` (`EXPIRE`/`RETAIN`) — set whenever a note is otherwise
+  expiry-eligible (`RESOLVED`, streak ≥2, ≥15 post-acceptance sessions),
+  regardless of `--propose-expiry`. `EXPIRE` only appears alongside
+  `expiry_justification`; without one it is always `RETAIN` — see
+  [efficacy.md](../features/efficacy.md#cure-vs-treatment).
 
-`--propose-expiry`: `RESOLVED` at streak ≥2 with ≥15 post-acceptance sessions
-emits an `expire` **proposal** through the normal review flow (idempotent; notes
+`--propose-expiry` + `--expiry-justification mechanized|environment-changed`:
+files an `expire` **proposal** through the normal review flow (idempotent; notes
 already carrying `expires` are skipped). **A human still accepts** — scoring
-never touches canonical memory.
+never touches canonical memory. `--propose-expiry` WITHOUT a justification is a
+no-op: `expiry_recommendation` still computes as `RETAIN`, nothing gets filed —
+cure vs treatment: a note can score `RESOLVED` precisely because it is loaded
+every session, and expiring it would make the failure return unscored.
 
 Exit **1** if any note is `PERSISTING` or `UNPARSEABLE_NOTE`.  
 See [efficacy.md](../features/efficacy.md).
+
+---
+
+## `report` / `ingest-decisions`
+
+```bash
+gotcontext-memory report \
+  [--source claude|codex|cursor|agy|opencode|all] \
+  [--scope user|project] [--store user|project] \
+  [--max-sessions 400] \
+  [--expiry-justification mechanized|environment-changed] \
+  [--out report.html]
+
+gotcontext-memory ingest-decisions [file=decisions.json]
+```
+
+`report` runs `efficacy` and writes a self-contained `report.html` listing
+pending decision items: expiry candidates (`RETAIN`/`EXPIRE` recommendation) and
+`DORMANT`/`PERSISTING` notes needing attention. Opens from `file://`, no server —
+Approve/Deny/Defer per item (deny requires a reason), Save writes
+`decisions.json` locally via `window.showSaveFilePicker`. Items already decided
+(`efficacy/report-decisions.jsonl`) are not shown again.
+
+`ingest-decisions` reads a saved decisions file — **basename only**, resolved
+under `cwd` (rejects any path separator or `..`) — and applies it: approvals on
+an expiry item file the same `expire` proposal (still reviewed at `review
+accept`); denials record a reason so the item is never re-proposed; defers are
+no-ops. The file is renamed to `<name>.done` after every decision lands, so a
+re-run can never double-fire.
+
+Optional triage adapter: config `report.triageCommand` (a string, or an array —
+each entry its own seat). Eligible items are piped (item text on stdin); the
+LAST line matching `RECOMMENDED:\s*(APPROVE|DENY)` is that seat's verdict.
+Unanimous `DENY` auto-suppresses with reason `council: unanimous DENY`;
+unanimous `APPROVE` auto-actions and records `council: unanimous APPROVE`;
+anything else — a split, a missing verdict line, a spawn failure — fails open to
+the human report. Council is **optional**; the human report is the default. See
+[HONESTY.md](../HONESTY.md).
 
 ---
 

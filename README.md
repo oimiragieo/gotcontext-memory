@@ -11,7 +11,14 @@ through a single classifier, so a pattern that shows up in more than one tool is
 counted once, with one prevalence figure. After a note is accepted, the
 `efficacy` command checks whether the problem it describes actually stopped
 recurring, per model, and recommends retiring notes that worked and hardening
-ones that did not.
+ones that did not. Zero recurrences is only called `RESOLVED` when the failure
+class was exercised enough to trust the silence — a thin post-acceptance window
+scores `DORMANT` instead, never a stealth win. Retiring a note that is only
+"working" because it is loaded every session requires an explicit
+mechanized/environment-changed justification (cure vs treatment); without one,
+`efficacy` recommends `RETAIN`. A `report` command turns expiry candidates and
+notes needing attention into a self-contained `report.html` a human can decide
+on and `ingest-decisions` applies.
 
 ## Getting started
 
@@ -39,6 +46,8 @@ gotcontext-memory init --project
 gotcontext-memory dream --source claude --store user --force
 gotcontext-memory review list
 gotcontext-memory efficacy --source all
+gotcontext-memory report --out report.html   # open it, decide, save decisions.json
+gotcontext-memory ingest-decisions decisions.json
 gotcontext-memory usage --skills-dir ~/.claude/skills
 gotcontext-memory doctor
 gotcontext-memory export --out /abs/path/out.gcm.gz

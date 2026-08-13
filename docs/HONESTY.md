@@ -83,6 +83,52 @@ breaking the staleness sweep and anything else reading it.
 - **Not ported, by design:** council-seat calibration (this package has no council —
   the human is the reviewer) and hook installation (harness-specific).
 
+### Exposure gate, cure-vs-treatment, import-outcome gating, HITL report (2026-08-13)
+
+Ported from the private engine's this-week upgrades (8-seat cross-model council
+validated), harness-agnostic subset only — the parts that are pure scoring,
+proposal, and human-decision logic, none of the harness-specific installation.
+
+- **`DORMANT` verdict (the exposure gate).** Zero post-acceptance hits used to
+  score `RESOLVED` unconditionally — conflating "it worked" with "the failure
+  class never came up." `efficacy` now projects the note's own claimed
+  pre-acceptance rate onto the post-acceptance window (`expected = (then_k /
+  then_n) * after_n`); below an expected count of 3, zero hits is `DORMANT`, not
+  `RESOLVED`. `DORMANT` is never expiry-eligible and resets a `RESOLVED` streak
+  the same way `PERSISTING` does. No baseline rate to project falls back to the
+  old `RESOLVED` behavior — an honest limit, not a silent regression.
+- **Cure vs treatment.** A note can score `RESOLVED` precisely because it is
+  loaded into every session; expiring it removes the treatment and the failure
+  returns unscored. `--propose-expiry` now requires an explicit
+  `--expiry-justification mechanized|environment-changed`; without one,
+  `efficacy` recommends `RETAIN` and files nothing. Still HITL: the toolkit
+  recommends, a human decides — via `review accept` on the filed proposal, or
+  via `report`/`ingest-decisions` overriding a `RETAIN` recommendation.
+- **Import-outcome gating.** `efficacy` scores a note only if its landing into
+  canonical memory is on record as `landed` (`efficacy/import-outcomes.jsonl`,
+  keyed by `claimKey(targetPath, body)` — content-addressed, so a refusal on one
+  version of a note never shadows a different, still-live version at the same
+  path). `review accept`/`reject` and `import` all write to this ledger; no
+  record at all is legacy behavior (score it, same as before this ledger
+  existed).
+- **HITL decision report (`report` / `ingest-decisions`).** `report` writes a
+  self-contained `report.html` (dark palette, WCAG-AA-measured contrast,
+  `file://`-only, no network) covering expiry candidates and `DORMANT`/
+  `PERSISTING` notes needing attention; a human Approves/Denies/Defers per item
+  in the browser and saves `decisions.json` via `window.showSaveFilePicker`.
+  `ingest-decisions` applies it — approvals on an expiry item file the exact
+  same `expire` PROPOSAL the propose→review flow already uses (still reviewed
+  at `review accept`); denials record a reason so the item is never
+  re-proposed. The decisions file is renamed to `<name>.done` after every
+  decision lands (never double-fires) and must be a **basename only** (path
+  traversal refused). An optional `report.triageCommand` config field (a
+  string, or an array of commands — each its own seat) can pre-triage items:
+  unanimous `APPROVE`/`DENY` auto-decides; anything else — a split, a missing
+  verdict line, a spawn failure — **fails open to the human report**. Council is
+  optional; the human report is the default, and this remains true regardless
+  of what the private engine's council calibration does — that calibration
+  itself was explicitly NOT ported (see above).
+
 ### Corpus reading is streamed and bounded
 
 Transcripts are streamed line-by-line into ~1 KB digests; whole transcripts are never
