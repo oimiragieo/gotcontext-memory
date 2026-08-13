@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { recordImportOutcome } from "./dream/import-outcomes.js";
 import type { Proposal, ProposalAction } from "./dream/run.js";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.js";
 import { sha256Hex } from "./hash.js";
@@ -109,6 +110,22 @@ export async function rejectProposal(
   await store.removeOperational(`proposals/${id}.json`);
   const after = await store.memoryTreeHash();
   if (after !== before) throw new Error("reject mutated memoryTreeHash");
+
+  // Import-outcome gating (efficacy): a human-rejected note claim never landed —
+  // record it so efficacy never scores this exact text if it somehow reappears.
+  const parsed = JSON.parse(raw) as { action?: string; targetPath?: string; body?: string };
+  if (
+    (parsed.action === "create" || parsed.action === "update" || parsed.action === "supersede") &&
+    parsed.targetPath &&
+    typeof parsed.body === "string"
+  ) {
+    await recordImportOutcome(store, {
+      targetPath: parsed.targetPath,
+      body: parsed.body,
+      outcome: "refused",
+      reason: `human_reject: ${reason}`,
+    });
+  }
 }
 
 export async function acceptProposal(
@@ -303,6 +320,21 @@ export async function acceptProposal(
       })}\n`,
       scanSecrets: false,
     });
+    // Import-outcome gating (efficacy): the accept FAILED, so this content never
+    // landed in canonical memory. Whatever is on disk for targetPath (if anything)
+    // is unaffected — this only shadows the exact refused text.
+    if (
+      proposal.action === "create" ||
+      proposal.action === "update" ||
+      proposal.action === "supersede"
+    ) {
+      await recordImportOutcome(store, {
+        targetPath: proposal.targetPath,
+        body: proposal.body,
+        outcome: "refused",
+        reason: receiptCode(err),
+      });
+    }
     throw err;
   }
 
@@ -321,4 +353,17 @@ export async function acceptProposal(
     })}\n`,
     scanSecrets: false,
   });
+  // Import-outcome gating (efficacy): this exact text is now the live canonical
+  // content — mark it landed so efficacy scores it under legacy/normal rules.
+  if (
+    proposal.action === "create" ||
+    proposal.action === "update" ||
+    proposal.action === "supersede"
+  ) {
+    await recordImportOutcome(store, {
+      targetPath: proposal.targetPath,
+      body: proposal.body,
+      outcome: "landed",
+    });
+  }
 }

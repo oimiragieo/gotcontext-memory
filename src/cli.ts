@@ -20,6 +20,7 @@ import { installFragments, uninstallFragments } from "./installer.js";
 import { runMcpServer } from "./mcp/server.js";
 import { projectStoreRoot, userStoreRoot } from "./paths.js";
 import { exportStore, importStore } from "./portability.js";
+import { generateReport, ingestDecisions, writeReportHtml } from "./report.js";
 import { acceptProposal, listProposals, rejectProposal } from "./review.js";
 import { MemoryStore } from "./store.js";
 
@@ -329,10 +330,24 @@ export function buildCli(): Command {
       "--propose-expiry",
       "RESOLVED x2 with an adequate window: emit an expire PROPOSAL (a human still reviews)",
     )
+    .option(
+      "--expiry-justification <value>",
+      "required to actually file an expire proposal: mechanized|environment-changed " +
+        "(cure-vs-treatment gate — without it, expiry-eligible notes get a RETAIN recommendation, never a proposal)",
+    )
     .action(async (opts) => {
       const global = program.opts();
       const store = await openStore(global.store ?? opts.scope);
       const scope = (opts.scope ?? global.store ?? "user") as "user" | "project";
+      if (
+        opts.expiryJustification &&
+        opts.expiryJustification !== "mechanized" &&
+        opts.expiryJustification !== "environment-changed"
+      ) {
+        throw new Error(
+          `--expiry-justification must be mechanized|environment-changed, got: ${opts.expiryJustification}`,
+        );
+      }
       const sources = {
         claude: claudeCorpus,
         codex: codexCorpus,
@@ -362,6 +377,10 @@ export function buildCli(): Command {
       }
       const results = await measureEfficacy(store, digests, {
         proposeExpiry: !!opts.proposeExpiry,
+        expiryJustification: opts.expiryJustification as
+          | "mechanized"
+          | "environment-changed"
+          | undefined,
       });
       console.log(JSON.stringify({ notes: results.length, results }, null, 2));
       // PERSISTING notes are actionable (escalate, don't re-remember); UNPARSEABLE
@@ -409,6 +428,102 @@ export function buildCli(): Command {
       }
       const report = measureUsage(digests, opts.skillsDir);
       console.log(JSON.stringify(report, null, 2));
+    });
+
+  program
+    .command("report")
+    .description(
+      "HITL decision report (report.html): expiry candidates + DORMANT/PERSISTING notes " +
+        "needing attention. Approve/Deny/Defer in the browser; `ingest-decisions` applies them.",
+    )
+    .option("--source <name>", "claude|codex|cursor|agy|opencode|all", "all")
+    .option("--scope <tier>", "user|project")
+    .option("--max-sessions <n>", "post-acceptance window per source", "400")
+    .option(
+      "--expiry-justification <value>",
+      "mechanized|environment-changed — surfaces an EXPIRE recommendation instead of the " +
+        "default RETAIN for otherwise-eligible notes; never files a proposal by itself",
+    )
+    .option("--out <path>", "output path for report.html", "report.html")
+    .action(async (opts) => {
+      const global = program.opts();
+      const store = await openStore(global.store ?? opts.scope);
+      const scope = (opts.scope ?? global.store ?? "user") as "user" | "project";
+      if (
+        opts.expiryJustification &&
+        opts.expiryJustification !== "mechanized" &&
+        opts.expiryJustification !== "environment-changed"
+      ) {
+        throw new Error(
+          `--expiry-justification must be mechanized|environment-changed, got: ${opts.expiryJustification}`,
+        );
+      }
+      const sources = {
+        claude: claudeCorpus,
+        codex: codexCorpus,
+        cursor: cursorCorpus,
+        agy: agyCorpus,
+        opencode: opencodeCorpus,
+      } as const;
+      const selected =
+        opts.source === "all"
+          ? (Object.keys(sources) as CorpusSourceName[])
+          : ([opts.source] as CorpusSourceName[]).filter((k) => k in sources);
+      const digests = [];
+      for (const name of selected) {
+        const r = await digestRoots({
+          roots: defaultCorpusRoots(name),
+          source: name,
+          projectKey: scope === "project" ? path.basename(process.cwd()) : undefined,
+          maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+        });
+        digests.push(...r.digests);
+        if (name === "opencode") {
+          const dbr = await digestOpencodeDb(defaultOpencodeDbPath(), {
+            maxSessions: Number.parseInt(opts.maxSessions, 10) || 400,
+          });
+          digests.push(...dbr.digests);
+        }
+      }
+      const results = await measureEfficacy(store, digests, {
+        expiryJustification: opts.expiryJustification as
+          | "mechanized"
+          | "environment-changed"
+          | undefined,
+      });
+      const cfg = await loadConfig(store.root);
+      const { html, pending, autoApproved, autoDenied } = await generateReport(store, results, {
+        triageCommand: cfg.report.triageCommand,
+      });
+      const outPath = path.isAbsolute(opts.out) ? opts.out : path.join(process.cwd(), opts.out);
+      await writeReportHtml(outPath, html);
+      console.log(
+        JSON.stringify(
+          {
+            out: outPath,
+            pending: pending.length,
+            autoApproved: autoApproved.length,
+            autoDenied: autoDenied.length,
+          },
+          null,
+          2,
+        ),
+      );
+    });
+
+  program
+    .command("ingest-decisions")
+    .argument("[file]", "decisions.json basename, resolved under cwd", "decisions.json")
+    .description(
+      "Apply a saved report decisions file: approvals action (expiry -> proposal), " +
+        "denials record a reason so the item is not re-proposed. Renames the file to " +
+        "<name>.done afterward so it can never double-fire.",
+    )
+    .action(async (file) => {
+      const global = program.opts();
+      const store = await openStore(global.store);
+      const result = await ingestDecisions(store, file, process.cwd());
+      console.log(JSON.stringify(result, null, 2));
     });
 
   program.command("mcp").action(async () => {

@@ -3,6 +3,8 @@ import path from "node:path";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { MemoryStore } from "../store.js";
 import { type SessionDigest, signalKey } from "./digest.js";
+import { loadImportOutcomes } from "./import-outcomes.js";
+import { claimKey } from "./run.js";
 
 /**
  * The efficacy loop — the difference between a system that WRITES memory and one
@@ -13,7 +15,13 @@ import { type SessionDigest, signalKey } from "./digest.js";
  * measureEfficacy re-runs the prevalence count for each accepted pattern over the
  * sessions AFTER acceptance and renders a verdict:
  *
- *   RESOLVED           zero recurrences in a sufficient window — candidate for expiry
+ *   RESOLVED           zero recurrences AND enough exposure to believe the failure
+ *                      class would have shown up if it still existed — candidate
+ *                      for expiry
+ *   DORMANT            zero recurrences but the failure class was barely exercised
+ *                      after acceptance — "never fired" is not the same claim as
+ *                      "fixed", and conflating them is exactly the exposure gap
+ *                      this verdict exists to name. NEVER an expiry candidate.
  *   PERSISTING         still recurring — the note is not preventing it; escalate
  *                      (hook/mechanization) rather than re-remember
  *   INSUFFICIENT_DATA  too few post-acceptance sessions to say anything — a verdict
@@ -23,7 +31,12 @@ import { type SessionDigest, signalKey } from "./digest.js";
  * window that produced each number is part of the result.
  */
 
-export type EfficacyVerdict = "RESOLVED" | "PERSISTING" | "INSUFFICIENT_DATA" | "UNPARSEABLE_NOTE";
+export type EfficacyVerdict =
+  | "RESOLVED"
+  | "DORMANT"
+  | "PERSISTING"
+  | "INSUFFICIENT_DATA"
+  | "UNPARSEABLE_NOTE";
 
 export type EfficacyResult = {
   notePath: string;
@@ -46,13 +59,29 @@ export type EfficacyResult = {
    * mechanism, not a re-worded note. This toolkit is harness-agnostic, so this
    * is a RECOMMENDATION field; it never installs anything. */
   recommend_mechanize?: boolean;
+  /** Set when the note is otherwise eligible for expiry (RESOLVED, streak>=2,
+   * after_n>=MIN_EXPIRY_WINDOW). "Cure vs treatment": a note can score RESOLVED
+   * PRECISELY BECAUSE it is loaded every session — expiring it removes the
+   * treatment and the failure returns unscored. EXPIRE only appears when an
+   * explicit `expiryJustification` was supplied; otherwise RETAIN — the toolkit
+   * recommends, a human decides. */
+  expiry_recommendation?: "EXPIRE" | "RETAIN";
+  /** Present only alongside `expiry_recommendation: "EXPIRE"`. */
+  expiry_justification?: "mechanized" | "environment-changed";
 };
 
 export type EfficacyOptions = {
-  /** RESOLVED on >=2 consecutive runs with an adequate window (n>=15): emit an
-   * `expire` PROPOSAL through the normal propose->review flow. A human still
-   * accepts — canonical memory is never touched here (HITL preserved). */
+  /** RESOLVED on >=2 consecutive runs with an adequate window (n>=15) AND
+   * `expiryJustification` supplied: emit an `expire` PROPOSAL through the normal
+   * propose->review flow. A human still accepts — canonical memory is never
+   * touched here (HITL preserved). Without a justification this is a no-op:
+   * `expiry_recommendation` still gets computed (RETAIN), nothing gets filed. */
   proposeExpiry?: boolean;
+  /** Cure-vs-treatment gate (required to actually file an expire proposal):
+   * "mechanized" — the rule is now enforced by a hook/gate elsewhere, or
+   * "environment-changed" — the condition that caused the failure no longer
+   * applies. Neither supplied = RETAIN, never EXPIRE. */
+  expiryJustification?: "mechanized" | "environment-changed";
 };
 
 const HISTORY_PATH = "efficacy/history.jsonl";
@@ -63,6 +92,12 @@ export const MIN_MODEL_SESSIONS = 5;
 
 /** Post-acceptance sessions below this count → INSUFFICIENT_DATA, never a verdict. */
 export const MIN_AFTER_SESSIONS = 5;
+
+/** Exposure gate: with zero post-apply hits, RESOLVED requires the EXPECTED hit
+ * count (pre-apply rate projected onto the post-apply window) to reach this floor.
+ * Below it the failure class was not exercised enough to tell "fixed" from
+ * "never came up" apart — that gap is DORMANT, not RESOLVED. */
+export const DORMANT_MIN_EXPECTED = 3;
 
 const KIND_TO_CHANNELS: Record<string, Array<keyof SessionDigest>> = {
   tool_error: ["toolErrors"],
@@ -128,13 +163,24 @@ async function appendHistory(store: MemoryStore, results: EfficacyResult[]): Pro
   });
 }
 
-async function proposeExpiryFor(store: MemoryStore, r: EfficacyResult): Promise<boolean> {
+/**
+ * File an `expire` PROPOSAL through the normal propose->review flow. Exported so
+ * the HITL decision report (report.ts) can file the same proposal on a human's
+ * explicit "approve" of an EXPIRE recommendation, not just from the automated
+ * streak pass inside measureEfficacy. Canonical memory is never touched here —
+ * only a proposal file; a human still accepts.
+ */
+export async function createExpireProposal(
+  store: MemoryStore,
+  notePath: string,
+  opts: { evidenceQuote: string },
+): Promise<boolean> {
   // Idempotence: skip when a pending expire proposal for this note already
   // exists, or the note already carries an `expires` frontmatter field.
   const { listProposals } = await import("../review.js");
   const pending = await listProposals(store);
-  if (pending.some((p) => p.action === "expire" && p.targetPath === r.notePath)) return false;
-  const buf = await store.read(r.notePath);
+  if (pending.some((p) => p.action === "expire" && p.targetPath === notePath)) return false;
+  const buf = await store.read(notePath);
   if (!buf) return false;
   const bodyText = buf.toString("utf8");
   try {
@@ -146,15 +192,10 @@ async function proposeExpiryFor(store: MemoryStore, r: EfficacyResult): Promise<
   const { proposalId } = await import("./run.js");
   const draft = {
     action: "expire" as const,
-    targetPath: r.notePath,
-    base_hash: await store.currentHash(r.notePath),
+    targetPath: notePath,
+    base_hash: await store.currentHash(notePath),
     body: bodyText,
-    evidence: [
-      {
-        transcriptId: "efficacy-loop",
-        quote: `RESOLVED x${r.streak}: 0/${r.after_n} post-acceptance sessions`,
-      },
-    ],
+    evidence: [{ transcriptId: "efficacy-loop", quote: opts.evidenceQuote }],
   };
   const proposal = { ...draft, id: proposalId(draft), createdAt: new Date().toISOString() };
   await store.commitOperational({
@@ -177,16 +218,25 @@ export async function measureEfficacy(
   } catch {
     return [];
   }
+  // Import-outcome gating: only score notes whose landing into canonical memory
+  // actually succeeded. No record for this exact text = legacy behavior (score
+  // it, e.g. hand-written notes predate this ledger). A recorded "refused" or
+  // "skipped" outcome for this exact text = excluded, silently, the same way a
+  // note with no `**Pattern:**` line is already skipped below.
+  const outcomes = await loadImportOutcomes(store);
   const out: EfficacyResult[] = [];
   for (const name of names) {
     if (!name.startsWith("pattern-") || !name.endsWith(".md")) continue;
     const rel = `memory/${name}`;
     const buf = await store.read(rel);
     if (!buf) continue;
+    const rawText = buf.toString("utf8");
+    const outcome = outcomes.get(claimKey(rel, rawText));
+    if (outcome && outcome !== "landed") continue; // this exact text never landed
     let frontmatter: Record<string, unknown>;
     let body: string;
     try {
-      ({ frontmatter, body } = parseFrontmatter(buf.toString("utf8")));
+      ({ frontmatter, body } = parseFrontmatter(rawText));
     } catch (err) {
       // Notes emitted before the yamlScalar fix can carry an unquoted colon in
       // `description:` and fail YAML parsing. That is a FINDING, not a skip — a
@@ -246,18 +296,34 @@ export async function measureEfficacy(
       }
       if (hit) {
         sessions.add(d.id);
-        for (const m of models) (modelHits[m] ??= new Set()).add(d.id);
+        for (const m of models) {
+          if (!modelHits[m]) modelHits[m] = new Set();
+          modelHits[m].add(d.id);
+        }
       }
     }
 
     const after_k = sessions.size;
     const after_n = after.length;
-    const verdict: EfficacyVerdict =
-      after_n < MIN_AFTER_SESSIONS
-        ? "INSUFFICIENT_DATA"
-        : after_k === 0
-          ? "RESOLVED"
-          : "PERSISTING";
+    const then_k = mPrev ? Number(mPrev[1]) : undefined;
+    const then_n = mPrev ? Number(mPrev[2]) : undefined;
+
+    let verdict: EfficacyVerdict;
+    if (after_n < MIN_AFTER_SESSIONS) {
+      verdict = "INSUFFICIENT_DATA";
+    } else if (after_k > 0) {
+      verdict = "PERSISTING";
+    } else {
+      // Exposure gate: zero post-apply hits is "worked" AND "never came up"
+      // wearing the same clothes. Project the note's OWN claimed pre-apply rate
+      // (then_k/then_n) onto the post-apply window; only call RESOLVED once that
+      // expected count clears DORMANT_MIN_EXPECTED. Below the floor — or with no
+      // baseline rate to project at all — the failure class was not exercised
+      // enough to tell "fixed" from "dormant" apart.
+      const expected =
+        then_k != null && then_n != null && then_n > 0 ? (then_k / then_n) * after_n : null;
+      verdict = expected == null || expected >= DORMANT_MIN_EXPECTED ? "RESOLVED" : "DORMANT";
+    }
 
     // Model-conditional verdicts: RESOLVED-on-X / PERSISTING-on-Y is a
     // scope-narrowing finding, not a contradiction (GEPA Pareto rule) — keep
@@ -278,8 +344,8 @@ export async function measureEfficacy(
       kind,
       pattern,
       acceptedAt: accepted,
-      then_k: mPrev ? Number(mPrev[1]) : undefined,
-      then_n: mPrev ? Number(mPrev[2]) : undefined,
+      then_k,
+      then_n,
       after_k,
       after_n,
       occurrences,
@@ -300,16 +366,37 @@ export async function measureEfficacy(
   }
   await appendHistory(store, out);
 
-  if (opts.proposeExpiry) {
-    for (const r of out) {
-      if (r.verdict === "RESOLVED" && r.streak >= 2 && r.after_n >= MIN_EXPIRY_WINDOW) {
-        await proposeExpiryFor(store, r);
-      }
+  // Cure-vs-treatment: RESOLVED at streak>=2 with an adequate window is
+  // EXPIRY-ELIGIBLE, but a note can score RESOLVED precisely BECAUSE it is being
+  // loaded every session — expiring it removes the treatment and the failure
+  // returns unscored. `expiry_recommendation` is always computed for the HITL
+  // report (report.ts) regardless of `proposeExpiry`; the canonical `expire`
+  // PROPOSAL is only ever filed when a justification was supplied. DORMANT is
+  // never eligible here — it never reaches this branch (verdict !== "RESOLVED").
+  for (const r of out) {
+    const eligible = r.verdict === "RESOLVED" && r.streak >= 2 && r.after_n >= MIN_EXPIRY_WINDOW;
+    if (!eligible) continue;
+    if (opts.expiryJustification) {
+      r.expiry_recommendation = "EXPIRE";
+      r.expiry_justification = opts.expiryJustification;
+    } else {
+      r.expiry_recommendation = "RETAIN";
+    }
+    if (opts.proposeExpiry && opts.expiryJustification) {
+      await createExpireProposal(store, r.notePath, {
+        evidenceQuote: `RESOLVED x${r.streak}: 0/${r.after_n} post-acceptance sessions (justification: ${opts.expiryJustification})`,
+      });
     }
   }
 
   // worst news first: persisting patterns are the actionable ones
-  const rank = { UNPARSEABLE_NOTE: 0, PERSISTING: 1, INSUFFICIENT_DATA: 2, RESOLVED: 3 };
+  const rank = {
+    UNPARSEABLE_NOTE: 0,
+    PERSISTING: 1,
+    INSUFFICIENT_DATA: 2,
+    DORMANT: 3,
+    RESOLVED: 4,
+  };
   out.sort((a, b) => rank[a.verdict] - rank[b.verdict] || b.after_k - a.after_k);
   return out;
 }

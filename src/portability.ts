@@ -5,6 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGzip, gunzipSync } from "node:zlib";
+import { recordImportOutcome } from "./dream/import-outcomes.js";
 import { regenerateIndex } from "./index.js";
 import { assertSafeRelativePath } from "./paths.js";
 import type { MemoryStore } from "./store.js";
@@ -135,8 +136,8 @@ export async function importStore(
     }
     const bodyBuf = Buffer.from(row.contentBase64, "base64");
     if (row.path === "MEMORY.md" || row.path.startsWith("memory/")) {
+      const body = bodyBuf.toString("utf8");
       try {
-        const body = bodyBuf.toString("utf8");
         const base = await store.currentHash(row.path);
         await store.commitCanonical({
           relativePath: row.path,
@@ -145,9 +146,22 @@ export async function importStore(
           provenance: { authored_by: "system", source: "import" },
         });
         imported += 1;
+        // Import-outcome gating (efficacy): MEMORY.md is the index, not a note —
+        // only memory/*.md rows are the note claims efficacy ever scores.
+        if (row.path.startsWith("memory/")) {
+          await recordImportOutcome(store, { targetPath: row.path, body, outcome: "landed" });
+        }
       } catch (err) {
         rejected += 1;
         note("canonical_write", err);
+        if (row.path.startsWith("memory/")) {
+          await recordImportOutcome(store, {
+            targetPath: row.path,
+            body,
+            outcome: "refused",
+            reason: "canonical_write",
+          });
+        }
       }
       continue;
     }

@@ -47,11 +47,7 @@ function mk(id: string, ts: number, snips: string[], model = "model-a"): Session
 async function storeWithNote(key: string) {
   const root = await mkdtemp(path.join(os.tmpdir(), "gcm-lc-"));
   const store = await MemoryStore.initStore(root);
-  const body =
-    `---\ntitle: Recurring tool error\n` +
-    `description: ${JSON.stringify(`seen in 3/10 sessions — ${key}`)}\n` +
-    `createdAt: ${new Date(T0).toISOString()}\n---\n\n` +
-    `**Pattern:** ${key}\n\n**Prevalence:** 3/10 sessions (4 occurrences)\n`;
+  const body = `---\ntitle: Recurring tool error\ndescription: ${JSON.stringify(`seen in 3/10 sessions — ${key}`)}\ncreatedAt: ${new Date(T0).toISOString()}\n---\n\n**Pattern:** ${key}\n\n**Prevalence:** 3/10 sessions (4 occurrences)\n`;
   await store.commitCanonical({
     relativePath: "memory/pattern-feedbeef.md",
     body,
@@ -101,12 +97,17 @@ describe("model-conditional verdicts", () => {
 });
 
 describe("lifecycle actions (HITL preserved)", () => {
-  it("RESOLVED x2 with n>=15 + proposeExpiry creates an expire PROPOSAL, applies nothing", async () => {
+  it("RESOLVED x2 with n>=15 + proposeExpiry + justification creates an expire PROPOSAL, applies nothing", async () => {
     const store = await storeWithNote(KEY);
     await measureEfficacy(store, clean(20));
     const before = await store.memoryTreeHash();
-    const r = await measureEfficacy(store, clean(20), { proposeExpiry: true });
+    const r = await measureEfficacy(store, clean(20), {
+      proposeExpiry: true,
+      expiryJustification: "mechanized",
+    });
     expect(r[0]?.streak).toBe(2);
+    expect(r[0]?.expiry_recommendation).toBe("EXPIRE");
+    expect(r[0]?.expiry_justification).toBe("mechanized");
     const pending = await listProposals(store);
     const exp = pending.find((p) => p.action === "expire");
     expect(exp?.targetPath).toBe("memory/pattern-feedbeef.md");
@@ -117,10 +118,43 @@ describe("lifecycle actions (HITL preserved)", () => {
   it("expiry proposal is not duplicated on the next run", async () => {
     const store = await storeWithNote(KEY);
     await measureEfficacy(store, clean(20));
-    await measureEfficacy(store, clean(20), { proposeExpiry: true });
-    await measureEfficacy(store, clean(20), { proposeExpiry: true });
+    await measureEfficacy(store, clean(20), {
+      proposeExpiry: true,
+      expiryJustification: "mechanized",
+    });
+    await measureEfficacy(store, clean(20), {
+      proposeExpiry: true,
+      expiryJustification: "environment-changed",
+    });
     const pending = await listProposals(store);
     expect(pending.filter((p) => p.action === "expire").length).toBe(1);
+  });
+
+  it("cure vs treatment: proposeExpiry WITHOUT a justification never files a proposal — RETAIN instead", async () => {
+    const store = await storeWithNote(KEY);
+    await measureEfficacy(store, clean(20));
+    const before = await store.memoryTreeHash();
+    const r = await measureEfficacy(store, clean(20), { proposeExpiry: true });
+    expect(r[0]?.streak).toBe(2);
+    expect(r[0]?.expiry_recommendation).toBe("RETAIN");
+    expect(r[0]?.expiry_justification).toBeUndefined();
+    const pending = await listProposals(store);
+    expect(pending.some((p) => p.action === "expire")).toBe(false);
+    expect(await store.memoryTreeHash()).toBe(before);
+  });
+
+  it("expiry_recommendation is computed for the HITL report even without --propose-expiry at all", async () => {
+    const store = await storeWithNote(KEY);
+    await measureEfficacy(store, clean(20));
+    const r = await measureEfficacy(store, clean(20));
+    expect(r[0]?.streak).toBe(2);
+    expect(r[0]?.expiry_recommendation).toBe("RETAIN");
+    const r2 = await measureEfficacy(store, clean(20), { expiryJustification: "mechanized" });
+    // justification alone (no proposeExpiry) flips the recommendation but still
+    // files nothing — only report.ts / a human "approve" ever writes the proposal.
+    expect(r2[0]?.expiry_recommendation).toBe("EXPIRE");
+    const pending = await listProposals(store);
+    expect(pending.some((p) => p.action === "expire")).toBe(false);
   });
 
   it("PERSISTING x2 sets recommend_mechanize (a recommendation, never an install)", async () => {

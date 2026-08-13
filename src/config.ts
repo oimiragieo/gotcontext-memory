@@ -21,6 +21,13 @@ export type StoreConfig = {
     /** When true, MCP exposes memory_commit (non-HITL). Default false. */
     allowCommit: boolean;
   };
+  report: {
+    /** Optional council-of-one(s) triage adapter for `report` items. A string is
+     * one seat; an array runs each command as its own seat and requires
+     * unanimity to auto-decide. Council is OPTIONAL — the human report is the
+     * default, and any adapter failure fails open to it. See HONESTY.md. */
+    triageCommand?: string | string[];
+  };
 };
 
 const FORBIDDEN_KEYS = new Set(["dream.schedule", "dream.auto", "schedule", "auto"]);
@@ -30,6 +37,7 @@ export const DEFAULT_CONFIG: StoreConfig = {
   memory: { policy: {} },
   secrets: { allowlist: [] },
   mcp: { allowCommit: false },
+  report: {},
 };
 
 export function validateConfigObject(raw: unknown): StoreConfig {
@@ -38,7 +46,7 @@ export function validateConfigObject(raw: unknown): StoreConfig {
   }
   const obj = raw as Record<string, unknown>;
   for (const key of Object.keys(obj)) {
-    if (!["dream", "memory", "secrets", "mcp"].includes(key)) {
+    if (!["dream", "memory", "secrets", "mcp", "report"].includes(key)) {
       throw new Error(`Unknown config key: ${key}`);
     }
   }
@@ -57,6 +65,13 @@ export function validateConfigObject(raw: unknown): StoreConfig {
   const memory = (obj.memory ?? { policy: {} }) as StoreConfig["memory"];
   const policy = (dream.policy ?? {}) as StoreConfig["dream"]["policy"];
   const mcpRaw = (obj.mcp ?? {}) as Record<string, unknown>;
+  const reportRaw = (obj.report ?? {}) as Record<string, unknown>;
+  let triageCommand: string | string[] | undefined;
+  if (typeof reportRaw.triageCommand === "string") {
+    triageCommand = reportRaw.triageCommand;
+  } else if (Array.isArray(reportRaw.triageCommand)) {
+    triageCommand = reportRaw.triageCommand.map(String);
+  }
   return {
     dream: {
       enabled: Boolean(dream.enabled ?? false),
@@ -69,6 +84,7 @@ export function validateConfigObject(raw: unknown): StoreConfig {
     mcp: {
       allowCommit: Boolean(mcpRaw.allowCommit ?? false),
     },
+    report: { triageCommand },
   };
 }
 

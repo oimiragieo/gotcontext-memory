@@ -23,8 +23,12 @@ const FORBIDDEN = new Set([
   "createWriteStream",
 ]);
 
-/** Modules allowed to call fs mutation APIs (store-root or audited external). */
-const ALLOWED = new Set(["store.ts", "installer.ts", "portability.ts"]);
+/** Modules allowed to call fs mutation APIs (store-root or audited external).
+ * report.ts joined 2026-08-13: report.html is written to a caller-resolved
+ * absolute path outside the store (writeReportHtml, same perimeter as
+ * portability.ts archives), and ingest-decisions renames the caller's
+ * basename-only decisions.json to `<name>.done` after every decision lands. */
+const ALLOWED = new Set(["store.ts", "installer.ts", "portability.ts", "report.ts"]);
 
 function collectWriteCalls(filePath: string): string[] {
   const text = fs.readFileSync(filePath, "utf8");
