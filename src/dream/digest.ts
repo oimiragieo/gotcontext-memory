@@ -48,6 +48,21 @@ export type SessionDigest = {
   preferences: DigestPreference[];
   skills: string[];
   models: string[];
+  /**
+   * Retrieval exposure (BL-DRM-020): how often this session opened a stored
+   * memory file. Acquisition and verification say whether a note is right;
+   * only this says whether anyone READ it. A note that keeps scoring
+   * PERSISTING with zero post-acceptance reads is failing at DELIVERY, and no
+   * rewording fixes that — the rule has to move to a surface that is loaded
+   * without being asked for.
+   *
+   * OPTIONAL on purpose: digests persisted before this field existed genuinely
+   * have no reading, and "absent" must never be scored as "zero" — that would
+   * manufacture a delivery failure out of missing instrumentation.
+   */
+  nMemoryReads?: number;
+  /** Bounded sample of the memory files read, basename only. */
+  memoryReads?: string[];
 };
 
 const HOOK_BLOCK_RE = /stop hook|hook blocking|PreToolUse hook|hook feedback/i;
@@ -89,7 +104,37 @@ export function emptyDigest(
     preferences: [],
     skills: [],
     models: [],
+    nMemoryReads: 0,
+    memoryReads: [],
   };
+}
+
+/** Path fields differ per harness; check the ones that actually appear. */
+const READ_PATH_KEYS = ["file_path", "filePath", "path", "target_file", "notePath"];
+
+/**
+ * Record a read of a stored memory file. Matches the canonical store shapes
+ * (`memory/…`, `MEMORY.md`) rather than a bare "memory" substring, so a source
+ * file that merely lives in a directory called `memory` is not counted.
+ */
+export function noteMemoryRead(d: SessionDigest, toolName: string, input: unknown): void {
+  if (toolName.toLowerCase() !== "read") return;
+  const rec = (input ?? {}) as Record<string, unknown>;
+  let raw = "";
+  for (const k of READ_PATH_KEYS) {
+    if (typeof rec[k] === "string" && rec[k]) {
+      raw = String(rec[k]);
+      break;
+    }
+  }
+  if (!raw) return;
+  const norm = raw.replace(/\\/g, "/");
+  const base = norm.slice(norm.lastIndexOf("/") + 1);
+  if (!/(^|\/)memory\//i.test(norm) && base.toLowerCase() !== "memory.md") return;
+  d.nMemoryReads = (d.nMemoryReads ?? 0) + 1;
+  if (!d.memoryReads) d.memoryReads = [];
+  const seen = d.memoryReads;
+  if (seen.length < DIGEST_SIGNAL_CAP && !seen.includes(base)) seen.push(base);
 }
 
 /** Classify one text blob into a digest. Shared by the JSONL and .vscdb paths so a
@@ -227,6 +272,7 @@ export async function digestTranscriptFile(
               const s = String(input.skill ?? input.name ?? "unknown");
               if (!d.skills.includes(s)) d.skills.push(s);
             }
+            noteMemoryRead(d, name, p.input);
           } else if (p.type === "text") {
             texts.push(String(p.text ?? ""));
           }

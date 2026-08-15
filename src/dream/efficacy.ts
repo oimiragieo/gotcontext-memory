@@ -55,6 +55,15 @@ export type EfficacyResult = {
   streak: number;
   /** per-model verdict where that model has >=5 post-acceptance sessions */
   model_verdicts?: Record<string, string>;
+  /** Post-acceptance sessions that OPENED this note (BL-DRM-020). Undefined when
+   * no digest in the window carries read telemetry at all, which is not the same
+   * as zero — absent instrumentation must never read as "never opened". */
+  reads_post?: number;
+  /** PERSISTING with reads_post === 0: a DELIVERY failure, not a content one.
+   * The note was never opened, so no wording change can help; the rule has to
+   * reach an always-loaded surface (its index hook / a skill description / a
+   * harness gate). Recommendation only — this toolkit installs nothing. */
+  recommend_deliver?: boolean;
   /** PERSISTING on >=2 consecutive runs: the note is not working — the fix is a
    * mechanism, not a re-worded note. This toolkit is harness-agnostic, so this
    * is a RECOMMENDATION field; it never installs anything. */
@@ -303,6 +312,15 @@ export async function measureEfficacy(
       }
     }
 
+    // Retrieval exposure. Count only over digests that CARRY the channel: a
+    // corpus digested before read telemetry existed reports nothing, and
+    // scoring that as "never opened" would manufacture a delivery failure.
+    const instrumented = after.filter((d) => typeof d.nMemoryReads === "number");
+    const noteBase = rel.slice(rel.lastIndexOf("/") + 1);
+    const reads_post = instrumented.length
+      ? instrumented.filter((d) => (d.memoryReads ?? []).includes(noteBase)).length
+      : undefined;
+
     const after_k = sessions.size;
     const after_n = after.length;
     const then_k = mPrev ? Number(mPrev[1]) : undefined;
@@ -352,6 +370,7 @@ export async function measureEfficacy(
       verdict,
       streak: 1,
       model_verdicts,
+      reads_post,
     });
   }
 
@@ -363,6 +382,9 @@ export async function measureEfficacy(
     const prev = streaks[r.notePath];
     r.streak = prev && prev[0] === r.verdict ? prev[1] + 1 : 1;
     if (r.verdict === "PERSISTING" && r.streak >= 2) r.recommend_mechanize = true;
+    // Delivery outranks mechanization: a note nobody opened has not been tried
+    // yet, so "escalate it to a gate" is premature. Fix the surface first.
+    if (r.verdict === "PERSISTING" && r.reads_post === 0) r.recommend_deliver = true;
   }
   await appendHistory(store, out);
 

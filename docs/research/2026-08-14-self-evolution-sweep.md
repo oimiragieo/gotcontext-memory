@@ -58,6 +58,21 @@ rejected the known-bad item, so no votes were discarded. That is a passing
 calibration check, not proof the seats are healthy — the same run still logged
 one seat at 13% accept and another at 96%.
 
+## Port status in this toolkit (2026-08-15)
+
+| Item | Status here |
+|---|---|
+| BL-DRM-020 read telemetry | **Landed.** `noteMemoryRead` in the digest layer, `reads_post` + `recommend_deliver` in `efficacy`, an `undelivered` item in `report`. |
+| BL-DRM-021 review canary | **Not applicable.** No automated reviewer exists to calibrate — acceptance is HITL and the optional triage adapter already fails open to the human. |
+| BL-DRM-022 consolidation tier | Open. |
+| BL-DRM-023 escalation dedup | Open. |
+| BL-DRM-024 index vs note validators | **Not reproducible.** The index is regenerated from the note tree, not written by a proposal, and no frontmatter-required validator exists. The delivery remedy is therefore the note's `description` (which becomes the index hook), not an index write. |
+
+Worth noting for anyone porting between the two: the same doctrine produced
+*different mechanics* in each codebase because the index is authored in one and
+derived in the other. Copying the Python fix verbatim would have added a guard
+for a write path that cannot happen here.
+
 ## Doctrine distilled
 
 1. One engine, one corpus, one review, one apply; per-CLI code is adapters

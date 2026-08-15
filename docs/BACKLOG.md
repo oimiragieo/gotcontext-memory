@@ -1,6 +1,6 @@
 # Backlog — gotcontext-memory (complete list)
 
-**As of:** 2026-08-14 (BL-DRM-020..023 added from the Python-runtime unification + self-evolution research sweep; see `research/2026-08-14-self-evolution-sweep.md`)  
+**As of:** 2026-08-15 (BL-DRM-020 landed; BL-DRM-021/024 resolved by audit as not applicable to this architecture; 022/023 remain open. Background: `research/2026-08-14-self-evolution-sweep.md`)  
 **Version:** 0.9.0  
 **Rule:** If it is open work, it is on this list. Closed work belongs in audits/CHANGELOG, not here.
 
@@ -52,10 +52,10 @@ Junior rebuild: [`guides/rebuild-from-scratch.md`](./guides/rebuild-from-scratch
 | BL-DRM-008 | Session-level health denylist | OPEN | |
 | BL-DRM-009 | PC omega: stop pong proposals | OPEN | |
 | BL-DRM-010 | PC omega: memory_dream stall | OPEN | |
-| BL-DRM-020 | `reads_post` retrieval telemetry in `efficacy` | OPEN | Count post-accept digests whose memory-read tool calls open the note file; `PERSISTING + reads 0x` = DELIVERY failure (fix injection, never wording). Proven in the Python runtime 2026-08-14 (research doc L-2026-08-14). |
-| BL-DRM-021 | Seeded canary in any automated review stage | OPEN | One known-bad proposal per review batch: internally inconsistent prevalence + gate-weakening ask; a reviewer/seat that ACCEPTs is degenerate that run (discard, log). Runtime receipt: council had one always-no seat (12%) and one always-yes (95%) — undetectable by drift stats alone. |
+| BL-DRM-020 | `reads_post` retrieval telemetry in `efficacy` | **DONE 2026-08-15** | `digest.noteMemoryRead` counts Read tool calls opening `memory/…` or `MEMORY.md`; `efficacy` reports `reads_post` and sets `recommend_deliver` on `PERSISTING + reads 0`; `report` emits an `undelivered` item naming the surfaces to move the rule to. Delivery outranks mechanization — a note nobody opened has not been tried. Uninstrumented digests score `undefined`, never `0`. |
+| BL-DRM-021 | Seeded canary in any automated review stage | **N/A here (2026-08-15 audit)** | Requires an automated reviewer to calibrate. This toolkit is HITL: proposals are accepted by a human via `review` / `report` + `ingest-decisions`, and the only optional automation is the triage adapter in `report.ts`, which already fails OPEN to the human. Revisit only if an auto-accept path is ever added. |
 | BL-DRM-022 | Weekly CONSOLIDATION (region-rewrite) tier | OPEN | Re-read one ragged memory region; merge overlaps, supersede contradicted notes, expire mechanized-RESOLVED ones; survival requires re-synthesis (Auto-Dreamer 2605.20616). Emit per-note CAS-gated proposals, never one giant write. |
-| BL-DRM-024 | Note-shaped validators must exempt index files | OPEN | A "every memory target must open with `---` frontmatter" guard refused a council-ACCEPTED index rewrite in the Python runtime on 2026-08-15 — an index opens with a heading and never has frontmatter. Audit every write validator (`store.ts`, `frontmatter.ts`, `review.ts`) for the same conflation and give indexes their own shape check. The failure is self-masking: it reports as a routine refusal, and it blocks precisely the BL-DRM-020 remedy (moving an unread rule into the always-loaded index). |
+| BL-DRM-024 | Note-shaped validators must exempt index files | **CLOSED — not reproducible here (2026-08-15 audit)** | Audited `store.ts`, `frontmatter.ts`, `review.ts`. No frontmatter-required validator exists: `parseFrontmatter` returns an empty map for a body without a header rather than rejecting it, the only index-specific check (`checkIndexCaps`) is already scoped to `MEMORY.md`, and `MEMORY.md` is **regenerated** from the note tree by `regenerateIndex` rather than written by a proposal — so a proposal cannot carry an index body at all. Consequence worth stating: the BL-DRM-020 remedy takes a different shape here. The always-loaded surface is the index **hook**, which is the note's `description`, so an undelivered rule is fixed by rewriting that field (an ordinary `update` proposal), not by writing the index. |
 | BL-DRM-023 | Escalation lifecycle dedup + collision-safe archive moves | OPEN | Re-minting a denied escalation nightly collided with its own archive (WinError 183) and aborted triage fail-open in the Python runtime. Suppress re-mint across applied/denied/approved; archive moves must overwrite (`os.replace` semantics). |
 
 ## C. Corpus

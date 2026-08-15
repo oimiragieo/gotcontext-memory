@@ -21,7 +21,7 @@ import type { MemoryStore } from "./store.js";
 
 const DECISIONS_LEDGER = "efficacy/report-decisions.jsonl";
 
-export type ReportItemKind = "expiry" | "dormant" | "persisting";
+export type ReportItemKind = "expiry" | "dormant" | "persisting" | "undelivered";
 
 export type ReportItem = {
   id: string;
@@ -65,7 +65,24 @@ export function buildReportItems(results: EfficacyResult[]): ReportItem[] {
         reason: `zero post-apply hits over ${r.after_n} sessions, but expected exposure was below ${DORMANT_MIN_EXPECTED} — not enough exercise of the failure class to call this fixed (exposure gate, not a contradiction of RESOLVED)`,
         text: `DORMANT ${r.notePath} pattern="${r.pattern}" after_k=${r.after_k} after_n=${r.after_n} then_k=${r.then_k ?? "?"} then_n=${r.then_n ?? "?"} streak=${r.streak}`,
       });
+    } else if (r.verdict === "PERSISTING" && r.recommend_deliver) {
+      // Delivery before mechanization: a note nobody opened has not actually
+      // been tried, so escalating it to a gate skips the cheaper fix.
+      items.push({
+        id: reportItemId("undelivered", r.notePath),
+        kind: "undelivered",
+        notePath: r.notePath,
+        verdict: r.verdict,
+        streak: r.streak,
+        after_k: r.after_k,
+        after_n: r.after_n,
+        recommendation: "REVIEW",
+        reason: `PERSISTING x${r.streak} but the note was opened in 0 of ${r.after_n} post-acceptance sessions — this is a DELIVERY failure, not a wording one. Put the rule where it loads without being asked for: the index hook (its \`description\`), a skill description, or a harness gate.`,
+        text: `UNDELIVERED ${r.notePath} pattern="${r.pattern}" after_k=${r.after_k} after_n=${r.after_n} reads_post=0 streak=${r.streak}`,
+      });
     } else if (r.verdict === "PERSISTING" && r.recommend_mechanize) {
+      const readNote =
+        r.reads_post != null ? ` (read in ${r.reads_post}/${r.after_n} post-apply sessions)` : "";
       items.push({
         id: reportItemId("persisting", r.notePath),
         kind: "persisting",
@@ -75,8 +92,8 @@ export function buildReportItems(results: EfficacyResult[]): ReportItem[] {
         after_k: r.after_k,
         after_n: r.after_n,
         recommendation: "REVIEW",
-        reason: `PERSISTING x${r.streak}: the note is not preventing this failure — escalate to a hook/mechanism, do not re-remember`,
-        text: `PERSISTING ${r.notePath} pattern="${r.pattern}" after_k=${r.after_k} after_n=${r.after_n} streak=${r.streak}`,
+        reason: `PERSISTING x${r.streak}${readNote}: the note is not preventing this failure — escalate to a hook/mechanism, do not re-remember`,
+        text: `PERSISTING ${r.notePath} pattern="${r.pattern}" after_k=${r.after_k} after_n=${r.after_n} reads_post=${r.reads_post ?? "n/a"} streak=${r.streak}`,
       });
     } else if (r.expiry_recommendation) {
       items.push({
@@ -155,7 +172,8 @@ async function applyApproval(
       evidenceQuote: `report-approved EXPIRE: ${item.reason}`,
     });
   }
-  // dormant/persisting: acknowledgement only. Harness-agnostic — nothing installed.
+  // dormant/persisting/undelivered: acknowledgement only. Harness-agnostic —
+  // the toolkit never rewrites an index hook, a skill, or a hook on approval.
 }
 
 /**

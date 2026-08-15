@@ -171,6 +171,30 @@ act on. Every run appends to `efficacy/history.jsonl` (operational storage —
 | `RESOLVED` ×2, ≥15 post-acceptance sessions, no justification | `expiry_recommendation: "RETAIN"` — nothing filed (cure vs treatment) | **A human**, via `report`/`ingest-decisions` if they want to override |
 | `DORMANT` (any streak) | Never expiry-eligible; not an actionable trend by itself | Wait for more post-acceptance sessions |
 | `PERSISTING` ×2 | `recommend_mechanize: true` and exit 1 — the note is not working; the fix is a mechanism (hook/gate), never a re-worded note | You. This toolkit is harness-agnostic: it says *what* needs mechanizing, it never installs anything |
+| `PERSISTING` + `reads_post: 0` | `recommend_deliver: true`; `report` files it as `undelivered` | You — see below |
+
+## Retrieval exposure: was the note ever read?
+
+Each result carries `reads_post`: how many post-acceptance sessions actually
+**opened** the note file (counted from `Read` tool calls against `memory/…` or
+`MEMORY.md`). A note that keeps scoring `PERSISTING` while `reads_post` is `0`
+has not failed on content — it failed on **delivery**. Nobody read it, so no
+rewording can help, and escalating it to a hook skips the cheaper fix.
+
+The remedy is to move the rule to a surface that loads without being asked for:
+
+- the note's **index hook** — `MEMORY.md` is regenerated from each note's
+  `description`, so a description that states the rule as an imperative is the
+  always-loaded copy. This is an ordinary `update` proposal on the note.
+- a **skill description**, if your harness loads those by default;
+- a **harness gate**, once delivery is ruled out as the cause.
+
+Because delivery outranks mechanization, an undelivered note reports as
+`undelivered` rather than `persisting` in `report.html`.
+
+**`undefined` is not `0`.** Digests captured before this field existed carry no
+read telemetry at all, and those score `reads_post: undefined` — scoring them as
+zero would manufacture a delivery failure out of missing instrumentation.
 
 ## Model-conditional verdicts
 
