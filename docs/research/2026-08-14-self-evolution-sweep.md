@@ -37,6 +37,27 @@ weight updates — so it maps directly onto this toolkit.
   Claude-only), and retired a duplicated engine that was drifting behind by
   whole subsystems.
 
+## Follow-up receipt (2026-08-15, first unified cycle)
+
+The delivery doctrine produced its first proposal within a day: with the linked
+note scoring `reads_post = 0`, the dreamer stopped rewording it and instead
+proposed moving the rule INTO the always-loaded index as a standing rule ("the
+rule IS the line — no linked file"). The council accepted it 2/3 — and the
+apply stage then refused it, because a guard requiring frontmatter of every
+memory target treats an index as a note. Two lessons worth carrying into any
+implementation:
+
+- A validator written for the common artifact shape will eventually block the
+  rarer one. Give indexes their own shape check (BL-DRM-024).
+- Adding a doctrine changes which writes the system attempts, so it exercises
+  guard paths that were previously unreachable. Budget for one round of
+  false refusals after any change to what the consolidator is told to produce.
+
+The seeded canary (BL-DRM-021) also had its first live run: all three seats
+rejected the known-bad item, so no votes were discarded. That is a passing
+calibration check, not proof the seats are healthy — the same run still logged
+one seat at 13% accept and another at 96%.
+
 ## Doctrine distilled
 
 1. One engine, one corpus, one review, one apply; per-CLI code is adapters
