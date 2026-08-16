@@ -73,6 +73,46 @@ Worth noting for anyone porting between the two: the same doctrine produced
 derived in the other. Copying the Python fix verbatim would have added a guard
 for a write path that cannot happen here.
 
+## Memory tiers and cross-project contamination (2026-08-16)
+
+A dream that mines every project's transcripts and writes into a memory store
+needs an answer to *whose* memory a finding belongs to. Two tiers:
+
+- **Project memory** — facts true of that codebase: its conventions, tooling,
+  traps, skill updates. Authorized only by evidence from that project.
+- **User/global memory** — what improves the agent anywhere: tool and CLI
+  behavior, shell and path semantics, debugging and research method,
+  code-structure habits.
+
+The load-bearing insight (from a second-opinion review by codex gpt-5.6-sol) is
+that promoting a note to the global tier is a **declassification**, not merely a
+generalization. The note will be loaded alongside every project afterwards, so
+"generally useful" is not sufficient — it must also be safe to disclose to every
+project that will later receive it. A lesson can be perfectly general and still
+carry a client's repo name in its evidence.
+
+Consequences worth carrying into any implementation:
+
+1. Resolve the project of each cited session by **lookup against the transcript
+   tree**, never from a project name the generating model typed.
+2. Mixed-project evidence does not authorize a project-tier write. It is another
+   project's material entering this one.
+3. Unverifiable provenance authorizes nothing — refuse rather than write.
+4. A scope violation is an **authorization** failure, not a transient one like a
+   CAS conflict. Refuse, hand it to a human with the reason, and record it so the
+   same claim is not re-proposed unchanged. Never auto-retarget it to the global
+   tier: "it didn't fit the project, so make it global" is the exact escalation
+   the boundary exists to prevent.
+5. Write-scoping is not read-scoping. A model that reads every project in one
+   prompt can draw a cross-project inference even when the write lands in the
+   right place. Full isolation means per-trust-domain runs that emit sanitized
+   global candidates for a separate promotion pass. **This toolkit already does
+   the stronger half for project scope** (`scope === "project"` filters the
+   corpus by projectKey); the user tier is where the surface remains.
+
+Scope by *confidentiality domain*, not by OS user: a consultant with several
+clients is effectively multi-tenant on a single workstation.
+
 ## Doctrine distilled
 
 1. One engine, one corpus, one review, one apply; per-CLI code is adapters
