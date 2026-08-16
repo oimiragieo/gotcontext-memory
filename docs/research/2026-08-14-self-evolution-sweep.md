@@ -105,10 +105,22 @@ Consequences worth carrying into any implementation:
    the boundary exists to prevent.
 5. Write-scoping is not read-scoping. A model that reads every project in one
    prompt can draw a cross-project inference even when the write lands in the
-   right place. Full isolation means per-trust-domain runs that emit sanitized
-   global candidates for a separate promotion pass. **This toolkit already does
-   the stronger half for project scope** (`scope === "project"` filters the
-   corpus by projectKey); the user tier is where the surface remains.
+   right place. Two mechanisms close most of it, both now live in the Python
+   runtime and worth copying:
+   - **Pack-scoped context, always on.** Inject only the memory indexes of
+     projects actually represented in this run's corpus. The generator can only
+     cite what is in the pack, so every other project's index is exposure with
+     no upside — measured there as 22 indexes down to 9 and a 15% smaller
+     prompt, with nothing lost.
+   - **Trust domains, opt-in.** Group projects into confidentiality domains and
+     run one pass per domain, so no single run holds two clients' material.
+     Scope by confidentiality domain, not by OS user.
+   **This toolkit already does the stronger half for project scope**
+   (`scope === "project"` filters the corpus by projectKey); the user tier is
+   where the surface remains. What stays unbuilt in both is the separate
+   **promotion** pass that would decide the global tier without seeing any
+   domain's raw material — today a global note is authorized by a run that has
+   already read its own domain's material.
 
 Scope by *confidentiality domain*, not by OS user: a consultant with several
 clients is effectively multi-tenant on a single workstation.
