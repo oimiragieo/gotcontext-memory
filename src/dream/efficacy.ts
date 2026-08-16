@@ -316,9 +316,12 @@ export async function measureEfficacy(
     // corpus digested before read telemetry existed reports nothing, and
     // scoring that as "never opened" would manufacture a delivery failure.
     const instrumented = after.filter((d) => typeof d.nMemoryReads === "number");
-    const noteBase = rel.slice(rel.lastIndexOf("/") + 1);
+    // Match the store-relative path (`memory/…`), not a bare filename: notes in
+    // different subdirectories may share a name, and the index is shared.
     const reads_post = instrumented.length
-      ? instrumented.filter((d) => (d.memoryReads ?? []).includes(noteBase)).length
+      ? instrumented.filter((d) =>
+          (d.memoryReads ?? []).some((mr) => mr === rel || mr.endsWith(`/${rel}`)),
+        ).length
       : undefined;
 
     const after_k = sessions.size;

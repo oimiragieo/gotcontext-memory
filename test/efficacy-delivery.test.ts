@@ -62,11 +62,19 @@ const noisy = (n: number, reads?: string[] | null) =>
   );
 
 describe("noteMemoryRead", () => {
-  it("counts a Read of a stored note and samples its basename", () => {
+  it("counts a Read of a stored note and records its store-relative path", () => {
     const d = emptyDigest("/x/s.jsonl", { source: "claude" });
     noteMemoryRead(d, "Read", { file_path: "C:\\Users\\x\\store\\memory\\pattern-feedbeef.md" });
     expect(d.nMemoryReads).toBe(1);
-    expect(d.memoryReads).toEqual(["pattern-feedbeef.md"]);
+    expect(d.memoryReads).toEqual(["memory/pattern-feedbeef.md"]);
+  });
+
+  it("keeps same-named notes in different subdirectories distinct", () => {
+    const d = emptyDigest("/x/s.jsonl", { source: "claude" });
+    noteMemoryRead(d, "Read", { file_path: "/store/memory/a/dup.md" });
+    noteMemoryRead(d, "Read", { file_path: "/store/memory/b/dup.md" });
+    expect(d.nMemoryReads).toBe(2);
+    expect(d.memoryReads).toEqual(["memory/a/dup.md", "memory/b/dup.md"]);
   });
 
   it("counts the index itself", () => {
@@ -99,12 +107,21 @@ describe("efficacy delivery signal", () => {
 
   it("counts reads when the note IS opened, and does not flag delivery", async () => {
     const store = await storeWithNote();
-    const digests = noisy(8, ["pattern-feedbeef.md"]);
+    const digests = noisy(8, [NOTE]);
     const results = await measureEfficacy(store, digests, {});
     const r = results.find((x) => x.notePath === NOTE);
     expect(r?.verdict).toBe("PERSISTING");
     expect(r?.reads_post).toBe(8);
     expect(r?.recommend_deliver).toBeUndefined();
+  });
+
+  it("a different note that merely shares a basename does NOT count as a read", async () => {
+    const store = await storeWithNote();
+    const digests = noisy(8, ["memory/other/pattern-feedbeef.md"]);
+    const results = await measureEfficacy(store, digests, {});
+    const r = results.find((x) => x.notePath === NOTE);
+    expect(r?.reads_post).toBe(0);
+    expect(r?.recommend_deliver).toBe(true);
   });
 
   it("uninstrumented digests score reads_post undefined — never 0", async () => {

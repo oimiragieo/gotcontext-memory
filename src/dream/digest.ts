@@ -130,11 +130,18 @@ export function noteMemoryRead(d: SessionDigest, toolName: string, input: unknow
   if (!raw) return;
   const norm = raw.replace(/\\/g, "/");
   const base = norm.slice(norm.lastIndexOf("/") + 1);
-  if (!/(^|\/)memory\//i.test(norm) && base.toLowerCase() !== "memory.md") return;
+  const memAt = norm.toLowerCase().lastIndexOf("/memory/");
+  if (memAt < 0 && base.toLowerCase() !== "memory.md") return;
+  // Store the STORE-RELATIVE path, not the basename. `memory/` may contain
+  // subdirectories, and a bare filename makes two notes that share a name
+  // indistinguishable — the Python engine's audit on 2026-08-16 found the
+  // same conflation attributing one project's index reads to every other
+  // project's index-targeted note.
+  const key = memAt >= 0 ? norm.slice(memAt + 1) : base;
   d.nMemoryReads = (d.nMemoryReads ?? 0) + 1;
   if (!d.memoryReads) d.memoryReads = [];
   const seen = d.memoryReads;
-  if (seen.length < DIGEST_SIGNAL_CAP && !seen.includes(base)) seen.push(base);
+  if (seen.length < DIGEST_SIGNAL_CAP && !seen.includes(key)) seen.push(key);
 }
 
 /** Classify one text blob into a digest. Shared by the JSONL and .vscdb paths so a
