@@ -15,3 +15,12 @@ Before changing dream/store/MCP/review/efficacy:
 6. Locks always `locks/<sha256(rel)>.lock`; accept regenerates `MEMORY.md` under lock.
 7. Rejected → `claimKey`; accepted prefs → skip if path exists. Prefer anchors only.
 8. Version 0.9.0 until CEO gate. Prefer `tg`. Verify: `npm test && npm run lint && npm run build`.
+
+<!-- gotcontext-memory:begin -->
+# Gotcontext memory
+
+- Durable memory lives at `C:\Users\oimir\.gotcontext` (MEMORY.md index + memory/*.md).
+- Search with ordinary filesystem tools (grep/read). Prefer progressive disclosure.
+- Do not silently rewrite memory; propose changes via `gotcontext-memory dream` / HITL review.
+- Writes must go through `gotcontext-memory` / MCP commit tools (CAS + secret scan).
+<!-- gotcontext-memory:end -->

@@ -259,8 +259,19 @@ export async function runDreamFromDigests(
   const before = await store.memoryTreeHash();
   const cfg = await loadConfig(store.root);
   if (digests.length === 0) {
+    // A permission-dominated zero is a SCOPING outcome, not a broken install —
+    // and a first-run user cannot tell the difference from the counts alone
+    // (dogfooded 2026-08-18: `dream --store project` in a fresh directory
+    // excluded all 8,379 transcripts and the message offered no way out).
+    const hint =
+      counts.excluded_permission > 0 && counts.excluded_permission >= counts.scanned
+        ? " — every transcript was excluded by project scoping: a project store " +
+          "reads only sessions recorded for THIS directory's project. Run from " +
+          "the project directory the sessions belong to, or use `--store user` " +
+          "for a cross-project dream."
+        : "";
     const err = new Error(
-      `EMPTY_CORPUS — proves nothing; scanned=${counts.scanned} included=${counts.included} excluded_permission=${counts.excluded_permission}`,
+      `EMPTY_CORPUS — proves nothing; scanned=${counts.scanned} included=${counts.included} excluded_permission=${counts.excluded_permission}${hint}`,
     );
     err.name = "EmptyCorpus";
     throw err;

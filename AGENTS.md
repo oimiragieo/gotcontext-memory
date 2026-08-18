@@ -78,3 +78,12 @@ Docker dogfood (Windows host): `npm run verify:docker` — CLI dream needs `--fo
 - Treat last audit PASS as proof forever (L6).  
 - Edit `docs/superpowers/plans/*` checkboxes without verifying against code.  
 - Commit tool session caches (`.tensor-grep/`).
+
+<!-- gotcontext-memory:begin -->
+# Gotcontext memory
+
+- Durable memory lives at `C:\Users\oimir\.gotcontext` (MEMORY.md index + memory/*.md).
+- Search with ordinary filesystem tools (grep/read). Prefer progressive disclosure.
+- Do not silently rewrite memory; propose changes via `gotcontext-memory dream` / HITL review.
+- Writes must go through `gotcontext-memory` / MCP commit tools (CAS + secret scan).
+<!-- gotcontext-memory:end -->

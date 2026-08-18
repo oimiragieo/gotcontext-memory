@@ -180,7 +180,14 @@ export function buildCli(): Command {
         digests.push(...result.digests);
         sourceSummaries.push({
           name,
-          label: corpusScanLabel(result.scanned, result.included),
+          // OpenCode's JSONL roots are legacy and empty on every real install
+          // (the live store is SQLite; see the opencode-db row below). Without
+          // this label a user reads "opencode EMPTY" beside "opencode-db OK"
+          // and concludes the source is broken (dogfooded 2026-08-18).
+          label:
+            name === "opencode" && result.scanned === 0
+              ? "SKIPPED (JSONL roots legacy; real store is SQLite — see opencode-db)"
+              : corpusScanLabel(result.scanned, result.included),
           scanned: result.scanned,
           included: result.included,
           malformed: result.malformed,

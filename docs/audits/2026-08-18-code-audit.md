@@ -48,3 +48,29 @@ BL-DRM-002 (semantic merge), BL-DRM-022 (consolidation tier), BL-DRM-023
 (escalation dedup), BL-DRM-025 (evidence projects on proposals + user-tier
 disclosure gating), plus sections D–I. None is a size, lint, test, or
 documentation-completeness violation; all are feature backlog.
+
+## Addendum: shipped-artifact dogfood (same day)
+
+In-process tests are not proof the shipped CLI works, so the real binary
+(`dist/cli.js`, invoked as a user would) was run end-to-end on this machine's
+live corpus:
+
+| Step | Command | Result |
+|---|---|---|
+| init | `init` / `init --project` | managed blocks written (CLAUDE.md, cursor rules); no clobber |
+| dream | `dream --source all --store user --force` | **15,547 sessions** (claude 8,379 + codex 6,460 + cursor 308 + opencode-db 400) in **95 s**; **65 proposals**, all evidence-cited with counted prevalence and real session ids |
+| review | `review list` / `review accept <id> --yes` | accept committed via CAS; proposal moved to accepted/ |
+| efficacy | `efficacy --source all` | fresh note scored `INSUFFICIENT_DATA` (correct — no post-window yet), `reads_post` present |
+| report | `report --out report.html` | 7.6 KB HTML, renders |
+| doctor | `doctor` | all checks pass |
+| export | `export --out …` | archive produced |
+
+Two UX defects found by dogfooding and fixed same-commit:
+
+1. `dream --store project` from a directory with no matching sessions excluded
+   all 8,379 transcripts and said only `EMPTY_CORPUS … excluded_permission=8379`
+   — a first-run dead end. The message now explains project scoping and names
+   the fix (`--store user`, or run from the owning project directory).
+2. `--source all` printed `opencode: EMPTY` beside `opencode-db: OK (400)` —
+   the legacy JSONL roots are empty on every real install, and the row read as
+   a broken source. It is now labeled SKIPPED with the reason.
