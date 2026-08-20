@@ -275,3 +275,16 @@ describe("import-outcome gating (efficacy scores only notes that actually landed
     expect(r[0]?.verdict).toBe("RESOLVED");
   });
 });
+
+it("SIGNATURE_UNVERIFIABLE when a stored note's pattern is placeholder residue — never matched, never RESOLVED", async () => {
+  // A legacy note minted before the usableSignalKey guard could carry the
+  // degenerate pattern "<path>". Matching it would count every path-shaped
+  // failure as recurrence; skipping it silently would fake RESOLVED. Name it.
+  const store = await storeWithPatternNote("tool_error", "<path>", new Date(T0).toISOString());
+  const after = Array.from({ length: 15 }, (_, i) =>
+    mk(`u${i}`, T0 + (i + 1) * DAY, ["/mnt/c/Users/someone/somewhere"]),
+  );
+  const r = await measureEfficacy(store, after);
+  expect(r.length).toBe(1);
+  expect(r[0]?.verdict).toBe("SIGNATURE_UNVERIFIABLE");
+});

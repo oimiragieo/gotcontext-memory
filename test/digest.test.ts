@@ -135,3 +135,52 @@ describe("prevalence mining across sessions", () => {
     expect(found[0]?.citations.length).toBeGreaterThan(0);
   });
 });
+
+describe("usableSignalKey — a signature must survive its own normalisation", () => {
+  // 2026-08-20 (Python engine receipt, session ledger L13): the span
+  // `/mnt/c/Users/oimir` normalised to the bare key "<path>", which matched
+  // 696/986 failure-bearing digests and fabricated two PERSISTING x14 verdicts.
+  it("rejects keys that are placeholder residue only", async () => {
+    const { usableSignalKey, signalKey } = await import("../src/dream/digest.js");
+    expect(usableSignalKey(signalKey("/mnt/c/Users/oimir"))).toBe(false);
+    expect(usableSignalKey(signalKey("12345 67890"))).toBe(false);
+    expect(usableSignalKey(signalKey("deadbeefcafe0123"))).toBe(false);
+  });
+  it("accepts keys that keep real words after normalisation", async () => {
+    const { usableSignalKey, signalKey } = await import("../src/dream/digest.js");
+    expect(usableSignalKey(signalKey("EISDIR: illegal operation on a directory"))).toBe(true);
+  });
+});
+
+describe("minePrevalence — degenerate keys never form a bucket", () => {
+  const mk2 = (id: string, snip: string) =>
+    ({
+      id,
+      source: "claude",
+      path: `/x/${id}.jsonl`,
+      sessionTs: 1,
+      bytes: 1,
+      truncated: false,
+      malformed: 0,
+      nUser: 1,
+      nAssistant: 1,
+      nToolUse: 0,
+      nToolError: 1,
+      nHookBlocks: 0,
+      nUserCorrections: 0,
+      nPreferences: 0,
+      hookBlocks: [],
+      userCorrections: [],
+      toolErrors: [{ line: 1, snip }],
+      preferences: [],
+      skills: [],
+      models: [],
+    }) as never;
+  it("two sessions whose snips are bare paths do not become a '<path>' pattern", () => {
+    const found = minePrevalence([
+      mk2("s1", "/mnt/c/Users/alice"),
+      mk2("s2", "C:devprojectsother"),
+    ]);
+    expect(found).toEqual([]);
+  });
+});

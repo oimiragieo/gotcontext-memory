@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { MemoryStore } from "../store.js";
-import { type SessionDigest, signalKey } from "./digest.js";
+import { type SessionDigest, signalKey, usableSignalKey } from "./digest.js";
 import { loadImportOutcomes } from "./import-outcomes.js";
 import { claimKey } from "./run.js";
 
@@ -36,6 +36,7 @@ export type EfficacyVerdict =
   | "DORMANT"
   | "PERSISTING"
   | "INSUFFICIENT_DATA"
+  | "SIGNATURE_UNVERIFIABLE"
   | "UNPARSEABLE_NOTE";
 
 export type EfficacyResult = {
@@ -283,6 +284,10 @@ export async function measureEfficacy(
     const acceptedTs = Date.parse(accepted);
     if (Number.isNaN(acceptedTs)) continue;
 
+    // A legacy note can carry a pattern that is placeholder residue only
+    // ("<path>"): matching it counts every path-shaped failure as recurrence,
+    // and skipping it silently fakes RESOLVED. Name it instead (2026-08-20).
+    const degenerate = !usableSignalKey(pattern);
     const after = digests.filter((d) => d.sessionTs > acceptedTs);
     const channels = KIND_TO_CHANNELS[kind] ?? ["toolErrors", "hookBlocks", "userCorrections"];
     let occurrences = 0;
@@ -293,6 +298,7 @@ export async function measureEfficacy(
       const models = d.models?.length ? d.models : ["unknown"];
       for (const m of models) modelAfter[m] = (modelAfter[m] ?? 0) + 1;
       let hit = false;
+      if (degenerate) continue;
       for (const ch of channels) {
         const arr = d[ch] as Array<{ snip: string }> | undefined;
         if (!Array.isArray(arr)) continue;
@@ -330,7 +336,9 @@ export async function measureEfficacy(
     const then_n = mPrev ? Number(mPrev[2]) : undefined;
 
     let verdict: EfficacyVerdict;
-    if (after_n < MIN_AFTER_SESSIONS) {
+    if (degenerate) {
+      verdict = "SIGNATURE_UNVERIFIABLE";
+    } else if (after_n < MIN_AFTER_SESSIONS) {
       verdict = "INSUFFICIENT_DATA";
     } else if (after_k > 0) {
       verdict = "PERSISTING";
@@ -417,6 +425,7 @@ export async function measureEfficacy(
   // worst news first: persisting patterns are the actionable ones
   const rank = {
     UNPARSEABLE_NOTE: 0,
+    SIGNATURE_UNVERIFIABLE: 0.5,
     PERSISTING: 1,
     INSUFFICIENT_DATA: 2,
     DORMANT: 3,

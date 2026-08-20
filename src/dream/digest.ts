@@ -470,6 +470,21 @@ export function signalKey(text: string): string {
 }
 
 /**
+ * A signature must still carry content AFTER normalisation. 2026-08-20 (Python
+ * engine receipt, ledger L13): the span `/mnt/c/Users/oimir` normalised to the
+ * bare key "<path>", which matched 696/986 failure-bearing digests and
+ * fabricated two PERSISTING x14 verdicts and an escalation. The raw-length
+ * check runs before normalisation; this one runs after it, on the residue.
+ */
+export function usableSignalKey(key: string): boolean {
+  // Matching here is exact-key, so short-but-worded keys are safe; the hazard
+  // is a key whose content is ONLY placeholders. Require two real words in the
+  // residue once placeholders are removed.
+  const residue = key.replace(/<path>|<hash>|<n>/g, "");
+  return (residue.match(/[a-z]{3,}/g) ?? []).length >= 2;
+}
+
+/**
  * A pattern must appear in at least `minSessions` DISTINCT sessions. Prevalence is
  * counted, never asserted — and a thing seen once is not a pattern, it is an
  * anecdote.
@@ -500,7 +515,7 @@ export function minePrevalence(
     occurrences: number,
   ) => {
     const key = signalKey(raw);
-    if (!key) return;
+    if (!key || !usableSignalKey(key)) return; // degenerate residue never buckets
     const id = `${kind}::${key}`;
     let b = buckets.get(id);
     if (!b) {
