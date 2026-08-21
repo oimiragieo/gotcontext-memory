@@ -288,3 +288,19 @@ it("SIGNATURE_UNVERIFIABLE when a stored note's pattern is placeholder residue â
   expect(r.length).toBe(1);
   expect(r[0]?.verdict).toBe("SIGNATURE_UNVERIFIABLE");
 });
+
+it("MECHANIZED when the only post-apply signal is gate refusals matching the pattern", async () => {
+  const store = await storeWithPatternNote(
+    "tool_error",
+    "pretooluse:bash hook error: inline escape gate blocked this",
+    new Date(T0).toISOString(),
+  );
+  const after = Array.from({ length: 8 }, (_, i) =>
+    mk(`g${i}`, T0 + (i + 1) * DAY, [
+      "PreToolUse:Bash hook error: inline escape gate blocked this",
+    ]),
+  );
+  const r = await measureEfficacy(store, after);
+  expect(r.length).toBe(1);
+  expect(r[0]?.verdict).toBe("MECHANIZED");
+});

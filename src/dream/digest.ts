@@ -470,6 +470,18 @@ export function signalKey(text: string): string {
 }
 
 /**
+ * A PreToolUse gate refusal is a PREVENTED failure, not an occurrence
+ * (2026-08-21, Python twin dream P1: 133 refusals scored a mechanized note
+ * PERSISTING x16). Stop-hook feedback deliberately does NOT match — a
+ * Stop-gate fire means the behavior recurred and was caught.
+ */
+const GATE_REFUSAL_RE = /PreToolUse:\w+ hook error|hooks[/\][a-z0-9_]+_gate\.py/i;
+
+export function isGateRefusal(snip: string): boolean {
+  return GATE_REFUSAL_RE.test(snip ?? "");
+}
+
+/**
  * A signature must still carry content AFTER normalisation. 2026-08-20 (Python
  * engine receipt, ledger L13): the span `/mnt/c/Users/oimir` normalised to the
  * bare key "<path>", which matched 696/986 failure-bearing digests and
@@ -528,7 +540,10 @@ export function minePrevalence(
   };
 
   for (const d of digests) {
-    for (const e of d.toolErrors) add("tool_error", e.snip, d.id, e.line, e.snip, 1);
+    for (const e of d.toolErrors) {
+      if (isGateRefusal(e.snip)) continue; // prevented, not a failure pattern
+      add("tool_error", e.snip, d.id, e.line, e.snip, 1);
+    }
     for (const h of d.hookBlocks) add("hook_block", h.snip, d.id, h.line, h.snip, 1);
     for (const c of d.userCorrections) add("user_correction", c.snip, d.id, c.line, c.snip, 1);
     for (const p of d.preferences) add("preference", p.span, d.id, p.line, p.span, 1);

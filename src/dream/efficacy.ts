@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { MemoryStore } from "../store.js";
-import { type SessionDigest, signalKey, usableSignalKey } from "./digest.js";
+import { type SessionDigest, isGateRefusal, signalKey, usableSignalKey } from "./digest.js";
 import { loadImportOutcomes } from "./import-outcomes.js";
 import { claimKey } from "./run.js";
 
@@ -36,6 +36,7 @@ export type EfficacyVerdict =
   | "DORMANT"
   | "PERSISTING"
   | "INSUFFICIENT_DATA"
+  | "MECHANIZED"
   | "SIGNATURE_UNVERIFIABLE"
   | "UNPARSEABLE_NOTE";
 
@@ -291,6 +292,7 @@ export async function measureEfficacy(
     const after = digests.filter((d) => d.sessionTs > acceptedTs);
     const channels = KIND_TO_CHANNELS[kind] ?? ["toolErrors", "hookBlocks", "userCorrections"];
     let occurrences = 0;
+    let prevented = 0; // gate refusals matching the pattern — evidence FOR the mechanism
     const sessions = new Set<string>();
     const modelAfter: Record<string, number> = {};
     const modelHits: Record<string, Set<string>> = {};
@@ -303,10 +305,13 @@ export async function measureEfficacy(
         const arr = d[ch] as Array<{ snip: string }> | undefined;
         if (!Array.isArray(arr)) continue;
         for (const e of arr) {
-          if (signalKey(e.snip) === pattern) {
-            occurrences += 1;
-            hit = true;
+          if (signalKey(e.snip) !== pattern) continue;
+          if (isGateRefusal(e.snip)) {
+            prevented += 1; // the gate did its job; never count against the note
+            continue;
           }
+          occurrences += 1;
+          hit = true;
         }
       }
       if (hit) {
@@ -342,6 +347,11 @@ export async function measureEfficacy(
       verdict = "INSUFFICIENT_DATA";
     } else if (after_k > 0) {
       verdict = "PERSISTING";
+    } else if (prevented > 0) {
+      // Zero occurrences but the gate is visibly firing: the rule is
+      // MECHANIZED — the note is the gate's documentation, never an
+      // escalation candidate and never a false RESOLVED.
+      verdict = "MECHANIZED";
     } else {
       // Exposure gate: zero post-apply hits is "worked" AND "never came up"
       // wearing the same clothes. Project the note's OWN claimed pre-apply rate
@@ -426,6 +436,7 @@ export async function measureEfficacy(
   const rank = {
     UNPARSEABLE_NOTE: 0,
     SIGNATURE_UNVERIFIABLE: 0.5,
+    MECHANIZED: 2.5,
     PERSISTING: 1,
     INSUFFICIENT_DATA: 2,
     DORMANT: 3,

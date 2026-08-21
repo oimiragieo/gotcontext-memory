@@ -184,3 +184,47 @@ describe("minePrevalence — degenerate keys never form a bucket", () => {
     expect(found).toEqual([]);
   });
 });
+
+describe("isGateRefusal — a PreToolUse block is a prevented failure, not an occurrence", () => {
+  // 2026-08-21 (Python engine twin, dream P1): 133 inline_escape_gate refusals
+  // scored a mechanized note PERSISTING x16 and kept re-escalating it for the
+  // mechanization it already has.
+  it("matches PreToolUse hook refusals and gate script paths", async () => {
+    const { isGateRefusal } = await import("../src/dream/digest.js");
+    expect(isGateRefusal("PreToolUse:Bash hook error: [python ...")).toBe(true);
+    expect(isGateRefusal("blocked by hooks/inline_escape_gate.py")).toBe(true);
+  });
+  it("does NOT match Stop-gate feedback (a behavior recurrence) or real errors", async () => {
+    const { isGateRefusal } = await import("../src/dream/digest.js");
+    expect(isGateRefusal("Stop hook feedback:\nREADY-WORK STALL GATE (auto): ...")).toBe(false);
+    expect(isGateRefusal("EISDIR: illegal operation on a directory")).toBe(false);
+  });
+  it("minePrevalence never mints a pattern from gate refusals", () => {
+    const mk3 = (id: string) =>
+      ({
+        id,
+        source: "claude",
+        path: `/x/${id}.jsonl`,
+        sessionTs: 1,
+        bytes: 1,
+        truncated: false,
+        malformed: 0,
+        nUser: 1,
+        nAssistant: 1,
+        nToolUse: 0,
+        nToolError: 1,
+        nHookBlocks: 0,
+        nUserCorrections: 0,
+        nPreferences: 0,
+        hookBlocks: [],
+        userCorrections: [],
+        toolErrors: [
+          { line: 1, snip: "PreToolUse:Bash hook error: inline escape gate blocked this" },
+        ],
+        preferences: [],
+        skills: [],
+        models: [],
+      }) as never;
+    expect(minePrevalence([mk3("s1"), mk3("s2"), mk3("s3")])).toEqual([]);
+  });
+});
