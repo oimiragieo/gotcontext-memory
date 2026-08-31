@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
   DORMANT_MIN_EXPECTED,
@@ -501,6 +502,7 @@ decisions.json locally — nothing here talks to a server.</p>
     try {
       if (window.showSaveFilePicker) {
         var handle = await window.showSaveFilePicker({
+          id: "gcm-decisions",
           suggestedName: "decisions.json",
           types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
         });
@@ -541,6 +543,67 @@ export type DecisionEntry = {
  * every decision lands the file is renamed to `<name>.done` so a re-run can
  * never double-fire (the original name is simply gone).
  */
+/**
+ * Find and ingest decisions files WHEREVER the browser put them (2026-08-31,
+ * Python engine receipt L19): the report's save picker opens in the browser's
+ * last-used folder, and a week of human approvals sat in OneDrive/Documents
+ * while the engine reported "no decisions file". The human's click must not
+ * depend on winning a file-picker navigation. Each found `decisions*.json` is
+ * moved into `cwd` (the canonical home, where the basename-only ingest and its
+ * `.done` consumption already apply) and ingested, oldest first.
+ */
+export async function sweepDecisions(
+  store: MemoryStore,
+  cwd: string = process.cwd(),
+  spots?: string[],
+): Promise<{ files: number; approved: number; denied: number; deferred: number }> {
+  const home = os.homedir();
+  const dirs = spots ?? [
+    cwd,
+    path.join(home, "Downloads"),
+    path.join(home, "Documents"),
+    path.join(home, "Desktop"),
+    path.join(home, "OneDrive", "Documents"),
+    path.join(home, "OneDrive", "Desktop"),
+  ];
+  const found: Array<{ dir: string; name: string; mtime: number }> = [];
+  for (const dir of dirs) {
+    let names: string[];
+    try {
+      names = await readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!/^decisions[^/\\]*\.json$/.test(name)) continue;
+      try {
+        const { stat } = await import("node:fs/promises");
+        const st = await stat(path.join(dir, name));
+        if (st.isFile()) found.push({ dir, name, mtime: st.mtimeMs });
+      } catch {
+        continue;
+      }
+    }
+  }
+  found.sort((a, b) => a.mtime - b.mtime);
+  const total = { files: 0, approved: 0, denied: 0, deferred: 0 };
+  for (const f of found) {
+    const src = path.join(f.dir, f.name);
+    let base = f.name;
+    if (path.resolve(f.dir) !== path.resolve(cwd)) {
+      // unique canonical name so two swept files never clobber each other
+      base = `decisions.${Date.now()}.${total.files}.json`;
+      await rename(src, path.join(cwd, base));
+    }
+    const r = await ingestDecisions(store, base, cwd);
+    total.files += 1;
+    total.approved += r.approved;
+    total.denied += r.denied;
+    total.deferred += r.deferred;
+  }
+  return total;
+}
+
 export async function ingestDecisions(
   store: MemoryStore,
   file: string,

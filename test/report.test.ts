@@ -264,3 +264,49 @@ describe("ingest-decisions round trip", () => {
     );
   });
 });
+
+describe("sweepDecisions — a human decision must not depend on winning a file-picker navigation", () => {
+  // 2026-08-31 (Python engine receipt, ledger L19): the report's save picker
+  // opens in the browser's last-used folder; a week of CEO approvals sat in
+  // OneDrive/Documents while every cycle reported "no decisions file".
+  async function storeWithExpiryNote2() {
+    const root = await mkdtemp(path.join(os.tmpdir(), "gcm-sweep-"));
+    const store = await MemoryStore.initStore(root);
+    const body = `---\ntitle: Recurring tool error\ndescription: d\ncreatedAt: ${new Date().toISOString()}\n---\n\n**Pattern:** eisdir\n`;
+    await store.commitCanonical({
+      relativePath: "memory/pattern-sweepme.md",
+      body,
+      baseHash: BASE_ABSENT,
+      provenance: { authored_by: "human" },
+    });
+    return store;
+  }
+
+  it("finds decisions.json in a browser landing folder, moves it to cwd, ingests, consumes", async () => {
+    const { sweepDecisions } = await import("../src/report.js");
+    const store = await storeWithExpiryNote2();
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "gcm-sweep-cwd-"));
+    const downloads = await mkdtemp(path.join(os.tmpdir(), "gcm-sweep-dl-"));
+    const decisions = {
+      items: [
+        { id: "s1", kind: "expiry", notePath: "memory/pattern-sweepme.md", action: "approve" },
+      ],
+    };
+    await writeFile(path.join(downloads, "decisions.json"), JSON.stringify(decisions), "utf8");
+    const r = await sweepDecisions(store, cwd, [downloads]);
+    expect(r.files).toBe(1);
+    expect(r.approved).toBe(1);
+    const { readdir } = await import("node:fs/promises");
+    expect((await readdir(downloads)).length).toBe(0); // swept away, not copied
+    const cwdFiles = await readdir(cwd);
+    expect(cwdFiles.some((f) => f.endsWith(".done"))).toBe(true); // consumed at canonical home
+  });
+
+  it("no file anywhere reports zero without throwing", async () => {
+    const { sweepDecisions } = await import("../src/report.js");
+    const store = await storeWithExpiryNote2();
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "gcm-sweep-cwd2-"));
+    const r = await sweepDecisions(store, cwd, [cwd]);
+    expect(r.files).toBe(0);
+  });
+});

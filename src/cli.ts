@@ -20,7 +20,7 @@ import { installFragments, uninstallFragments } from "./installer.js";
 import { runMcpServer } from "./mcp/server.js";
 import { projectStoreRoot, userStoreRoot } from "./paths.js";
 import { exportStore, importStore } from "./portability.js";
-import { generateReport, ingestDecisions, writeReportHtml } from "./report.js";
+import { generateReport, ingestDecisions, sweepDecisions, writeReportHtml } from "./report.js";
 import { acceptProposal, listProposals, rejectProposal } from "./review.js";
 import { MemoryStore } from "./store.js";
 
@@ -520,16 +520,21 @@ export function buildCli(): Command {
 
   program
     .command("ingest-decisions")
-    .argument("[file]", "decisions.json basename, resolved under cwd", "decisions.json")
+    .argument("[file]", "decisions.json basename, resolved under cwd; omit to SWEEP")
     .description(
       "Apply a saved report decisions file: approvals action (expiry -> proposal), " +
         "denials record a reason so the item is not re-proposed. Renames the file to " +
-        "<name>.done afterward so it can never double-fire.",
+        "<name>.done afterward so it can never double-fire. With no file argument, " +
+        "sweeps cwd plus the browser's usual save folders (Downloads/Documents/" +
+        "Desktop/OneDrive) — a save picker opens wherever the browser last saved, " +
+        "so the decision must be hunted, not hoped for.",
     )
     .action(async (file) => {
       const global = program.opts();
       const store = await openStore(global.store);
-      const result = await ingestDecisions(store, file, process.cwd());
+      const result = file
+        ? await ingestDecisions(store, file, process.cwd())
+        : await sweepDecisions(store, process.cwd());
       console.log(JSON.stringify(result, null, 2));
     });
 
